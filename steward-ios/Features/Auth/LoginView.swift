@@ -159,7 +159,11 @@ struct LoginView: View {
                     Button("Sign in with email", action: signInWithDebugEmail)
                         .buttonStyle(.glass)
                         .tint(Color.brass)
-                        .disabled(isSubmitting || debugEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(
+                            isSubmitting
+                            || debugEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || debugPassword.isEmpty
+                        )
                 }
             }
             .padding(.top, Spacing.s2)
@@ -182,21 +186,19 @@ struct LoginView: View {
         }
     }
 
+    #if DEBUG
     private func signInWithDebugEmail() {
         let email = debugEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard email.isEmpty == false else { return }
-        // Auth emulator accepts any non-empty password — pad with a
-        // placeholder when the field is left blank so the SDK doesn't
-        // bail on length validation.
-        let password = debugPassword.isEmpty ? "test1234" : debugPassword
+        guard email.isEmpty == false, debugPassword.isEmpty == false else { return }
         isSubmitting = true
         Task {
             // Sign-in-or-create — the bishop's email may already have
             // a `members` doc in their ward but no Auth user yet.
-            await auth.debugSignInOrCreate(email: email, password: password)
+            await auth.debugSignInOrCreate(email: email, password: debugPassword)
             isSubmitting = false
         }
     }
+    #endif
 
     private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
         switch result {

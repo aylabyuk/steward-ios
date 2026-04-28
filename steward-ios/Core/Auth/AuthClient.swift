@@ -49,11 +49,14 @@ final class AuthClient {
         }
     }
 
-    /// DEBUG helper for the Auth emulator. Tries to sign in; if the user
-    /// doesn't exist yet, creates them with the supplied password. Only
-    /// safe to use against the emulator — production should always go
-    /// through SSO. Lets the bishop sign in with their own email so the
-    /// allowlist gate matches a real `members` doc keyed on that email.
+    #if DEBUG
+    /// DEBUG-only helper for the Auth emulator. Tries to sign in; if
+    /// the user doesn't exist yet, creates them with the supplied
+    /// password. Compiled out of release builds so the
+    /// `Auth.auth().createUser(...)` symbol is never reachable in the
+    /// shipped binary, even via runtime hooking — defense in depth
+    /// against the production project being targeted by an attacker
+    /// who's instrumented the app.
     func debugSignInOrCreate(email: String, password: String) async {
         do {
             _ = try await Auth.auth().signIn(withEmail: email, password: password)
@@ -76,6 +79,7 @@ final class AuthClient {
             }
         }
     }
+    #endif
 
     /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
     /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is set

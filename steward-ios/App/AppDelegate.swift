@@ -1,4 +1,5 @@
 import UIKit
+import StewardCore
 
 #if canImport(FirebaseAuth)
 import FirebaseAuth
@@ -16,6 +17,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Wipe stale keychain residue from a previous install BEFORE
+        // any SDK reads the keychain on its own thread. Firebase Auth
+        // would otherwise inherit a previous user's session token on
+        // a fresh install. See `KeychainBootstrap` for the rationale.
+        KeychainBootstrap.clearIfFirstLaunch()
+
         // Configure Firebase HERE rather than in `App.init()`. Firebase's
         // GoogleUtilities AppDelegateSwizzler runs synchronously inside
         // `FirebaseApp.configure()` and snapshots the current
