@@ -40,9 +40,23 @@ public struct Meeting: Codable, Sendable, Equatable {
     public struct Assignment: Codable, Sendable, Equatable {
         public let person: Person?
         public let confirmed: Bool?
-        public init(person: Person? = nil, confirmed: Bool? = nil) {
+        /// Lifecycle string — `"planned" | "invited" | "confirmed" | "declined"`.
+        /// **iOS-side deviation from the web schema.** The web only carries
+        /// status on the post-invite `prayers/{role}` subcollection doc;
+        /// iOS additionally writes it inline so v1 doesn't need a parallel
+        /// subcollection writer + dual-source-of-truth read path. Web's
+        /// lenient Zod ignores the extra field. Stored raw to tolerate
+        /// future server-side states; UI maps via `InvitationStatus(rawString:)`.
+        public let status: String?
+
+        public init(
+            person: Person? = nil,
+            confirmed: Bool? = nil,
+            status: String? = nil
+        ) {
             self.person = person
             self.confirmed = confirmed
+            self.status = status
         }
     }
 

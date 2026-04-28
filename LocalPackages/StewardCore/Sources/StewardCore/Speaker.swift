@@ -7,7 +7,7 @@ import Foundation
 /// All fields are optional except `name` so a partial / draft doc still
 /// decodes — mirrors the web's lenient schema (`name.min(1)`, others
 /// optional or with `.catch` defaults).
-public struct Speaker: Decodable, Sendable, Equatable {
+public struct Speaker: Codable, Sendable, Equatable {
     public let name: String
     public let email: String?
     public let phone: String?
@@ -59,6 +59,55 @@ public struct Speaker: Decodable, Sendable, Equatable {
     /// mono-eyebrow column on the schedule card.
     public static func slotLabel(forIndex index: Int) -> String {
         String(format: "%02d", index + 1)
+    }
+
+    /// Whether the meeting card should render an explicit
+    /// "Add another speaker" row below the last slot. True only when
+    /// the bishop has met the typical floor (e.g. 2) but hasn't
+    /// reached the ceiling (e.g. 4) — below the floor the
+    /// `Assign Speaker` placeholder slots already serve as the
+    /// affordance, and at the ceiling there's no room to add.
+    public static func canAddMore(
+        assignedCount: Int,
+        floor: Int,
+        ceiling: Int
+    ) -> Bool {
+        assignedCount >= floor && assignedCount < ceiling
+    }
+
+    /// The Firestore payload for a new (or updated) speaker doc, ready
+    /// to feed into `setData(merge: true)`. Empty strings are dropped
+    /// rather than written so the doc reads cleanly in the emulator
+    /// UI and matches the web's lenient Zod (`z.literal("")` short
+    /// circuit) on the read side. The caller stamps `createdAt` /
+    /// `updatedAt` with `FieldValue.serverTimestamp()` since those
+    /// types live in the FirebaseFirestore module the app target
+    /// imports — keeping `firestoreData` Firebase-free.
+    public static func firestoreData(
+        for draft: InvitationDraft,
+        status: InvitationStatus,
+        order: Int? = nil
+    ) -> [String: Any] {
+        var dict: [String: Any] = [
+            "name": draft.name,
+            "status": status.rawValue,
+        ]
+        if let role = draft.role {
+            dict["role"] = role.rawValue
+        }
+        if let topic = draft.topic, topic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            dict["topic"] = topic
+        }
+        if let email = draft.email, email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            dict["email"] = email
+        }
+        if let phone = draft.phone, phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            dict["phone"] = phone
+        }
+        if let order {
+            dict["order"] = order
+        }
+        return dict
     }
 
     /// Build the row list a single meeting card renders: actual speakers

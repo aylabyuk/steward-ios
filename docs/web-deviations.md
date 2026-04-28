@@ -138,7 +138,7 @@ badge so the visual language stays unified.
 
 ### Prayer rows show role label as subtitle
 
-**iOS**: OP / CP rows show "Invocation" / "Benediction" in italic
+**iOS**: OP / CP rows show "Invocation" / "Closing Prayer" in italic
 serif beneath the assignee's name (mirrors the speaker-row's
 topic line).
 
@@ -146,8 +146,133 @@ topic line).
 one line (`PrayerRow.tsx`).
 
 **Why**: Same row shell as the speaker row keeps the card visually
-consistent. The "Invocation" / "Benediction" caption tells the
+consistent. The "Invocation" / "Closing Prayer" caption tells the
 bishop what they're looking at without a separate column.
 
 **iOS code**: `steward-ios/Features/Schedule/MeetingRow.swift` —
 `MeetingCardBody.prayerRow(...)`.
+
+### Empty slots are tappable Assign… pills, not inert "Not assigned" text
+
+**iOS**: An empty speaker / prayer slot renders an "Assign Speaker",
+"Assign Opening Prayer", or "Assign Closing Prayer" pill (parchment-2
+fill, brass plus icon, walnut text). Tapping pushes the new
+single-person Assign-and-Invite flow.
+
+**PWA**: Empty rows in the speaker list are silent; assignment
+happens through the multi-step Plan Speakers / Plan Prayers wizard
+launched from the menu (`features/plan-speakers/`,
+`features/plan-prayers/`).
+
+**Why**: Pairs with the per-row flow below — once tapping a row is
+the way to assign, the row itself needs to *read* as the invitation
+to act. Italic "Not assigned" text was inert; the pill makes the
+verb visible without competing with filled assignees.
+
+**iOS code**: `steward-ios/Features/Invitations/AssignSlotButton.swift`
+— `AssignSlotButton`. Wired in
+`steward-ios/Features/Schedule/MeetingRow.swift` — `SlotRow`.
+
+---
+
+## Assign + Invite
+
+### Per-row Assign + Invite flow replaces the bulk Plan Speakers / Plan Prayers wizard
+
+**iOS**: Tap an empty slot's `Assign…` pill → push
+`AssignSlotFormView` (one form for speakers + prayers, conditional
+on slot kind) → tap Continue → push `InvitationPreviewView` with
+the interpolated ward letter → terminal CTAs of `Mark as Invited`,
+`Share…`, or `Save as Planned`. One slot at a time.
+
+**PWA**: Multi-step wizard
+(`features/plan-speakers/RosterStep.tsx` →
+`PreviewStep.tsx` → `SendStep.tsx`, mirrored on the prayer side
+in `features/plan-prayers/`) processes a whole sacrament meeting's
+roster in a single sitting.
+
+**Why**: A bishop touching the schedule on their phone is usually
+filling in a single slot they just got an answer for, not authoring
+a whole roster. A focused, push-style flow per slot reads more
+naturally on a phone than a multi-stage wizard. The wizard
+authoring experience stays on the web.
+
+**iOS code**:
+`steward-ios/Features/Invitations/AssignSlotFormView.swift`,
+`InvitationPreviewView.swift`,
+`steward-ios/Core/Firestore/InvitationsClient.swift`.
+
+### Share-sheet + explicit Mark-as-Invited, not auto-flip on send
+
+**iOS**: The Preview screen offers `Share…` (system
+`ShareLink` — Mail / Messages / WhatsApp / Print / Copy all
+included automatically) and a separate `Mark as Invited` button.
+Sharing does **not** flip status — only the explicit button does.
+
+**PWA**: `sendSpeakerInvitation` Cloud Function sends via Twilio +
+SendGrid and atomically flips status to `invited` on success
+(`features/plan-speakers/hooks/useWizardActions.ts`). The "Mark
+invited after print" affordance is the web's only manual flip.
+
+**Why**: v1 of the iOS feature delivers via the system share sheet
+rather than calling the Cloud Function. The share sheet doesn't
+report whether the bishop actually sent the invitation in the
+chosen app, so auto-flipping on share-sheet dismiss would lie about
+state. A separate explicit button is the honest signal — and it
+also reuses the web's "Mark invited after print" idiom for
+out-of-band delivery (paper letter, in-person ask). Wire the Cloud
+callable later when the iOS auto-send path lands.
+
+**iOS code**:
+`steward-ios/Features/Invitations/InvitationPreviewView.swift` —
+`actions(rendered:)` and `commit(status:)`.
+
+### Inline prayer-status field on `Meeting.Assignment`
+
+**iOS**: The inline `meeting.openingPrayer` / `meeting.benediction`
+Assignment now carries an optional `status: String?` alongside
+`{person, confirmed}`. The schedule row reads from this field for
+its status dot.
+
+**PWA**: `assignmentSchema` (`src/lib/types/person.ts:10-14`)
+defines only `{person, confirmed}` inline. Prayer status lives
+exclusively on the post-invite `prayers/{role}` subcollection doc
+that the bulk wizard creates. Web's lenient Zod silently ignores
+extra fields it doesn't know about.
+
+**Why**: To avoid building a parallel `prayers/{role}` writer + a
+dual-source-of-truth read path in v1, iOS writes status straight
+onto the inline Assignment. Same write path serves both planned
+and invited prayers. When the iOS prayer surface grows past
+invitations (RSVPs, chat, response tracking), promote to the
+subcollection model the web uses.
+
+**iOS code**:
+`LocalPackages/StewardCore/Sources/StewardCore/Meeting.swift` —
+`Meeting.Assignment.status`. Write helper at
+`steward-ios/Core/Firestore/InvitationsClient.swift` —
+`writePrayerAssignment(...)`.
+
+### Letter preview renders Markdown only — Lexical JSON ignored
+
+**iOS**: `LetterTemplate` decodes both
+`bodyMarkdown`/`footerMarkdown` and `editorStateJson` (Lexical),
+but the preview only renders the Markdown via
+`AttributedString(markdown:)`.
+
+**PWA**: The web is migrating from Markdown → Lexical and
+dual-writes both fields (`src/lib/types/template.ts:85-107`).
+Authoring + send paths render the Lexical editor state when
+present and fall back to Markdown.
+
+**Why**: Implementing a Lexical-JSON-tree → SwiftUI renderer is a
+much larger surface than v1 of this feature warrants — and the web
+still dual-writes Markdown for compatibility. Targeting Markdown
+keeps iOS readable for the foreseeable future. Promote when the
+web stops dual-writing or when iOS gains a letter-template editor
+of its own.
+
+**iOS code**:
+`LocalPackages/StewardCore/Sources/StewardCore/Invitations/LetterTemplate.swift`,
+rendered in
+`steward-ios/Features/Invitations/InvitationPreviewView.swift`.

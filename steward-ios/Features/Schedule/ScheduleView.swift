@@ -19,6 +19,7 @@ struct ScheduleView: View {
     @State private var ward: DocSubscription<Ward>
     @State private var horizonWeeks: Int = Self.initialWeeks
     @State private var loadingMore: Bool = false
+    @State private var path = NavigationPath()
 
     private static let initialWeeks = 4
     private static let stepWeeks = 4
@@ -42,16 +43,35 @@ struct ScheduleView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.parchment.ignoresSafeArea()
-            content
+        NavigationStack(path: $path) {
+            ZStack {
+                Color.parchment.ignoresSafeArea()
+                content
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                ScheduleTopBar(
+                    wardTitle: Ward.displayTitle(ward: ward.data, wardId: wardId),
+                    auth: auth
+                )
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: SlotContext.self) { context in
+                AssignSlotFormView(context: context, path: $path)
+            }
+            .navigationDestination(for: InvitationDraft.self) { draft in
+                InvitationPreviewView(draft: draft, path: $path)
+            }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            ScheduleTopBar(
-                wardTitle: Ward.displayTitle(ward: ward.data, wardId: wardId),
-                auth: auth
-            )
-        }
+    }
+
+    private func slotContext(date: String, kind: SlotKind) -> SlotContext {
+        SlotContext(
+            wardId: wardId,
+            meetingDate: date,
+            kind: kind,
+            wardName: Ward.displayTitle(ward: ward.data, wardId: wardId),
+            inviterName: auth.displayName ?? auth.email ?? "Bishopric"
+        )
     }
 
     @ViewBuilder
@@ -75,7 +95,10 @@ struct ScheduleView: View {
                             MeetingCardBody(
                                 date: date,
                                 meeting: byDate[date],
-                                wardId: wardId
+                                wardId: wardId,
+                                onAssign: { kind in
+                                    path.append(slotContext(date: date, kind: kind))
+                                }
                             )
                         } header: {
                             MeetingCardHeader(date: date, meeting: byDate[date], wardId: wardId)

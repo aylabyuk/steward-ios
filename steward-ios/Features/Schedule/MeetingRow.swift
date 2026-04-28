@@ -127,18 +127,33 @@ struct MeetingCardBody: View {
     let date: String
     let meeting: Meeting?
     let wardId: String
+    /// Tapped on an empty slot's `Assign…` pill. The parent (ScheduleView)
+    /// pushes onto the NavigationPath; this view stays Firebase-blind to
+    /// the navigation mechanism.
+    var onAssign: (SlotKind) -> Void = { _ in }
 
-    /// Always render at least this many speaker rows so missing slots
-    /// read as "Not assigned" placeholders rather than a short list.
-    /// Mirrors `MobileSundayBody`'s `SPEAKER_SLOT_COUNT = 4`.
-    private static let minSpeakerSlots = 4
+    /// Floor for visible speaker rows — the typical ward roster.
+    /// Below this, empty rows render as `Assign Speaker` placeholders
+    /// to invite the bishopric to fill them in.
+    private static let minSpeakerSlots = 2
+
+    /// Ceiling for visible speaker rows. Once the assigned count
+    /// reaches this, the `Add another speaker` affordance disappears
+    /// and the card stops growing.
+    private static let maxSpeakerSlots = 4
 
     @State private var speakers: CollectionSubscription<Speaker>
 
-    init(date: String, meeting: Meeting?, wardId: String) {
+    init(
+        date: String,
+        meeting: Meeting?,
+        wardId: String,
+        onAssign: @escaping (SlotKind) -> Void = { _ in }
+    ) {
         self.date = date
         self.meeting = meeting
         self.wardId = wardId
+        self.onAssign = onAssign
         let path = "wards/\(wardId)/meetings/\(date)/speakers"
         let source = FirestoreCollectionSource(path: path)
         self._speakers = State(initialValue: CollectionSubscription<Speaker>(
@@ -159,9 +174,19 @@ struct MeetingCardBody: View {
                 speakerRows
             }
             if effectiveKind.hasLocalProgram {
-                prayerRow(label: "OP", role: "Invocation", assignee: meeting?.openingPrayerName)
+                prayerRow(
+                    label: "OP",
+                    role: "Invocation",
+                    assignment: meeting?.openingPrayer,
+                    kind: .openingPrayer
+                )
                 slotDivider
-                prayerRow(label: "CP", role: "Benediction", assignee: meeting?.benedictionName)
+                prayerRow(
+                    label: "CP",
+                    role: "Closing Prayer",
+                    assignment: meeting?.benediction,
+                    kind: .benediction
+                )
             }
         }
         .padding(.horizontal, Spacing.s4)
@@ -182,37 +207,78 @@ struct MeetingCardBody: View {
     }
 
     /// Prayer-giver row. Same shell as a speaker row, with the role label
-    /// ("Invocation" / "Benediction") taking the topic slot. Chat button
-    /// shows when the slot is assigned. Status is currently `nil` — the
-    /// `openingPrayer` / `benediction` fields on the meeting doc carry
-    /// only `confirmed: Bool?`, not the full invitation lifecycle. When
-    /// prayers get promoted to the `prayers/{role}` subcollection
-    /// (per the web schema), we can wire in the same `StatusBadge.Tone`
-    /// mapping used for speakers.
-    private func prayerRow(label: String, role: String, assignee: String?) -> some View {
+    /// ("Invocation" / "Closing Prayer") taking the topic slot. Status comes
+    /// from the inline `Meeting.Assignment.status` field — an iOS-side
+    /// deviation from the web schema that lets us flip planned →
+    /// invited without standing up the `prayers/{role}` subcollection
+    /// in this PR. See `docs/web-deviations.md`.
+    private func prayerRow(
+        label: String,
+        role: String,
+        assignment: Meeting.Assignment?,
+        kind: SlotKind
+    ) -> some View {
+        let assignee = assignment?.person?.name
         let assigned = assignee?.isEmpty == false
         return SlotRow(
             label: label,
             assignee: assignee,
             topic: assigned ? role : nil,
-            status: nil,
-            showStatus: false
+            status: assignment?.status,
+            showStatus: assigned,
+            assignKind: assigned ? nil : kind,
+            onAssign: { onAssign(kind) }
         )
     }
 
 
+    @ViewBuilder
     private var speakerRows: some View {
+        let assignedCount = speakers.items.count
         let slots = Speaker.slots(speakers.items, minSlotCount: Self.minSpeakerSlots)
-        return ForEach(slots) { slot in
+        ForEach(slots) { slot in
             SlotRow(
                 label: slot.label,
                 assignee: slot.speaker?.data.name,
                 topic: slot.speaker?.data.topic,
                 status: slot.speaker?.data.status,
-                showStatus: slot.speaker != nil
+                showStatus: slot.speaker != nil,
+                assignKind: slot.speaker == nil ? .speaker : nil,
+                onAssign: { onAssign(.speaker) }
             )
             slotDivider
         }
+        if Speaker.canAddMore(
+            assignedCount: assignedCount,
+            floor: Self.minSpeakerSlots,
+            ceiling: Self.maxSpeakerSlots
+        ) {
+            addSpeakerRow
+        }
+    }
+
+    /// Explicit "+ Add another speaker" affordance below the last
+    /// filled row. Indented to align with the assignee-name column on
+    /// the rows above so the row rhythm stays — no slot number, since
+    /// this is an action, not a slot. Routes through the same
+    /// `onAssign(.speaker)` closure as the placeholder pills, so a
+    /// new speaker doc is written on the bishop's next save with no
+    /// extra ordering bookkeeping.
+    private var addSpeakerRow: some View {
+        HStack(spacing: Spacing.s3) {
+            // Match the slot label column width (36) + its leading +
+            // trailing gutters so the button's leading edge sits where
+            // an assignee name would.
+            Color.clear.frame(width: 36)
+            AssignSlotButton(
+                kind: .speaker,
+                label: "Add another speaker"
+            ) {
+                onAssign(.speaker)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, Spacing.s2)
     }
 
     /// Centered "stamp" rendered in place of the speaker list for fast,
@@ -223,9 +289,14 @@ struct MeetingCardBody: View {
     @ViewBuilder
     private func specialStamp(kind: MeetingKind) -> some View {
         HStack(alignment: .center, spacing: Spacing.s3) {
+            // Same 36pt leading column the slot-label uses, so the star
+            // icon's leading edge sits where the "01" / "OP" labels do
+            // and the title/description column lines up with assignee
+            // names on the rows above.
             Image(systemName: "star.circle")
                 .font(.title3)
                 .foregroundStyle(kind.stampTone.foreground)
+                .frame(width: 36, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 if let label = kind.stampLabel {
                     Text(label.uppercased())
@@ -265,22 +336,28 @@ private struct SlotRow: View {
     let assignee: String?
     var topic: String? = nil
     var status: String? = nil
-    /// Whether to render the trailing status dot. Speaker rows pass
-    /// `true` (assigned speakers always have at least a "planned" status);
-    /// prayer rows pass `false` for now since the meeting doc's inline
-    /// `Assignment` doesn't carry the full lifecycle yet.
+    /// Whether to render the trailing status dot. Filled speaker /
+    /// prayer rows pass `true`; empty rows don't need a dot — the
+    /// `Assign…` pill carries the affordance instead.
     var showStatus: Bool = false
+    /// Drives the empty-slot CTA. `nil` falls back to the legacy inert
+    /// "Not assigned" text — which is unreachable from the schedule
+    /// today, but keeps the row defensive for previews / unit-test
+    /// snapshots.
+    var assignKind: SlotKind? = nil
+    var onAssign: () -> Void = {}
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.s3) {
+        // Center-aligned so the slot label, assignee block, and status
+        // dot all vertically center to the row's content height —
+        // looks balanced whether the row has a single line ("Not
+        // assigned" / pill / one-line speaker) or two (name + topic).
+        HStack(alignment: .center, spacing: Spacing.s3) {
             Text(label)
                 .font(.monoEyebrow)
                 .tracking(1.2)
                 .foregroundStyle(Color.brassDeep)
                 .frame(width: 36, alignment: .leading)
-                // Nudge the slot label down so it sits on the assignee
-                // name's first baseline rather than the box top.
-                .padding(.top, 4)
 
             if let assignee, assignee.isEmpty == false {
                 VStack(alignment: .leading, spacing: 2) {
@@ -298,37 +375,69 @@ private struct SlotRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let assignKind {
+                AssignSlotButton(kind: assignKind, action: onAssign)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text("Not assigned")
                     .font(.serifAside)
                     .foregroundStyle(Color.walnut3)
-                    .padding(.top, 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if showStatus {
                 StatusDot(status: status)
                     .padding(.trailing, Spacing.s2)
-                    .padding(.top, 8)
             }
         }
         .padding(.vertical, Spacing.s2)
     }
 }
 
-/// Compact 8pt circle in the same `StatusBadge.Tone` palette used by
-/// meeting-type badges, so the visual language stays consistent across
-/// the schedule. VoiceOver label spells the status word out loud for
-/// screen readers and color-blind accessibility.
+/// Compact status indicator in the schedule's `StatusBadge.Tone`
+/// palette, sized 10pt so each state reads at a glance. Shape and
+/// colour both vary by state — relying on colour alone would fail
+/// `.accessibilityDifferentiateWithoutColor` and read as
+/// indistinguishable to colour-blind users:
+///
+///   - **planned** — hollow ring (chalk fill, walnut-2 stroke).
+///     Communicates "no action yet, awaiting plan".
+///   - **invited** — solid brass dot. The default "filled" state,
+///     awaiting a response.
+///   - **confirmed** — solid `successBold` dot, punchier than the
+///     muted brand olive used in `StatusBadge`'s body.
+///   - **declined** — solid `bordeauxBold` dot, punchier than the
+///     muted brand bordeaux used in `StatusBadge`'s body.
+///
+/// VoiceOver still reads the raw status word so screen-reader users
+/// don't depend on the shape distinction either.
 private struct StatusDot: View {
     let status: String?
 
+    private static let size: CGFloat = 10
+
     var body: some View {
         let tone = StatusBadge.Tone(rawStatus: status)
-        Circle()
-            .fill(tone.foreground)
-            .frame(width: 8, height: 8)
-            .accessibilityLabel("Status: \(status ?? "planned")")
+        Group {
+            switch tone {
+            case .neutral:
+                // Planned — hollow ring, the empty look.
+                Circle()
+                    .fill(Color.chalk)
+                    .overlay(Circle().stroke(Color.walnut2, lineWidth: 1.5))
+            case .pending:
+                // Invited — solid brass dot.
+                Circle().fill(Color.brassDeep)
+            case .success:
+                // Confirmed — punchier green.
+                Circle().fill(Color.successBold)
+            case .destructive:
+                // Declined — punchier red.
+                Circle().fill(Color.bordeauxBold)
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .accessibilityLabel("Status: \(status ?? "planned")")
     }
 }
 #endif

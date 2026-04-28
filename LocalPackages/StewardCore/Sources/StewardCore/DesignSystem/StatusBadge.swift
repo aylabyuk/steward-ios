@@ -49,17 +49,19 @@ public struct StatusBadge: View {
         case destructive
 
         public init(rawStatus: String?) {
+            // Speaker / prayer invitation lifecycle is the canonical
+            // four-state mapping; defer to InvitationStatus so that
+            // enum stays the single source of truth.
+            if let invitation = InvitationStatus(rawString: rawStatus) {
+                self = invitation.tone
+                return
+            }
+            // Meeting-side states the web also emits — different raw
+            // strings, same four tone slots.
             switch rawStatus?.lowercased() {
-            case "invited", "pending_approval":
-                self = .pending
-            case "confirmed", "approved", "published":
-                self = .success
-            case "declined":
-                self = .destructive
-            case "planned", "draft", nil, "":
-                self = .neutral
-            default:
-                self = .neutral
+            case "pending_approval":            self = .pending
+            case "approved", "published":       self = .success
+            default:                            self = .neutral
             }
         }
 

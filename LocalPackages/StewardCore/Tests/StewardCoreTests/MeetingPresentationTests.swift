@@ -62,6 +62,46 @@ struct MeetingCardBodyTests {
         #expect(meeting.openingPrayerName == nil)
         #expect(meeting.benedictionName == nil)
     }
+
+    @Test("An invited prayer's status round-trips off the inline Assignment so the row shows a brass dot")
+    func prayerStatusRoundTrip() throws {
+        // iOS deviation from the web: the inline Assignment now carries
+        // a `status` field too (web stores prayer status only in the
+        // post-invite `prayers/{role}` subcollection). See
+        // docs/web-deviations.md for the rationale.
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": {
+                "person": { "name": "Sister Davis", "email": "sd@example.com" },
+                "confirmed": false,
+                "status": "invited"
+            },
+            "benediction": {
+                "person": { "name": "Brother Cole" },
+                "confirmed": false,
+                "status": "planned"
+            }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayer?.status == "invited")
+        #expect(meeting.benediction?.status == "planned")
+        #expect(InvitationStatus(rawString: meeting.openingPrayer?.status)?.tone == .pending)
+        #expect(InvitationStatus(rawString: meeting.benediction?.status)?.tone == .neutral)
+    }
+
+    @Test("A meeting decoded without a prayer status leaves the field nil so the legacy doc shape still loads")
+    func prayerStatusBackcompat() throws {
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": { "person": { "name": "Sister Davis" } }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayer?.status == nil)
+    }
 }
 
 @Suite("Meeting type badge — what label and tone the schedule row shows")

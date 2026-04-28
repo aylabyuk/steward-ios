@@ -90,3 +90,96 @@ struct SpeakerSlotLabelTests {
         #expect(Speaker.slotLabel(forIndex: index) == expected)
     }
 }
+
+@Suite("Speaker.canAddMore — when the schedule card surfaces an Add row")
+struct SpeakerCanAddMoreTests {
+
+    @Test(
+        "Floor=2, ceiling=4: Add row only shows when the typical roster is met but ceiling isn't",
+        arguments: [
+            (assignedCount: 0, expected: false), // empty meeting — placeholders are the affordance
+            (assignedCount: 1, expected: false), // one filled, one placeholder still visible
+            (assignedCount: 2, expected: true),  // typical roster filled — surface the 3rd
+            (assignedCount: 3, expected: true),  // still room for one more
+            (assignedCount: 4, expected: false), // ceiling reached
+            (assignedCount: 5, expected: false), // defensive: never happens, mustn't crash
+        ]
+    )
+    func defaultBounds(assignedCount: Int, expected: Bool) {
+        #expect(
+            Speaker.canAddMore(assignedCount: assignedCount, floor: 2, ceiling: 4) == expected
+        )
+    }
+
+    @Test("A floor of 0 still gates on the ceiling — caller controls the rule")
+    func zeroFloor() {
+        #expect(Speaker.canAddMore(assignedCount: 0, floor: 0, ceiling: 4))
+        #expect(Speaker.canAddMore(assignedCount: 4, floor: 0, ceiling: 4) == false)
+    }
+
+    @Test("Floor equal to ceiling never opens the Add row — defensive against misconfig")
+    func degenerateBounds() {
+        #expect(Speaker.canAddMore(assignedCount: 2, floor: 2, ceiling: 2) == false)
+        #expect(Speaker.canAddMore(assignedCount: 0, floor: 4, ceiling: 4) == false)
+    }
+}
+
+@Suite("Speaker.firestoreData — what the bishop's new-speaker write puts on the wire")
+struct SpeakerFirestoreDataTests {
+
+    private func draft(
+        topic: String? = "Faith",
+        email: String? = nil,
+        phone: String? = nil
+    ) -> InvitationDraft {
+        InvitationDraft(
+            kind: .speaker,
+            wardId: "stv1",
+            meetingDate: "2026-05-17",
+            wardName: "Eglinton Ward",
+            inviterName: "Bishop Smith",
+            name: "Sarah Bensen",
+            email: email,
+            phone: phone,
+            topic: topic,
+            role: .member
+        )
+    }
+
+    @Test("Required fields land on the dict")
+    func requiredFields() {
+        let dict = Speaker.firestoreData(for: draft(), status: .planned, order: 2)
+        #expect(dict["name"] as? String == "Sarah Bensen")
+        #expect(dict["topic"] as? String == "Faith")
+        #expect(dict["role"] as? String == "Member") // web raw value
+        #expect(dict["status"] as? String == "planned")
+        #expect(dict["order"] as? Int == 2)
+    }
+
+    @Test("Empty / nil email and phone are omitted so the doc stays tidy")
+    func optionalsOmitted() {
+        let dict = Speaker.firestoreData(for: draft(email: nil, phone: nil), status: .planned)
+        #expect(dict["email"] == nil)
+        #expect(dict["phone"] == nil)
+        let dict2 = Speaker.firestoreData(for: draft(email: "", phone: ""), status: .planned)
+        #expect(dict2["email"] == nil)
+        #expect(dict2["phone"] == nil)
+    }
+
+    @Test("Provided email and phone surface verbatim")
+    func optionalsPresent() {
+        let dict = Speaker.firestoreData(
+            for: draft(email: "sarah@example.com", phone: "555-0123"),
+            status: .invited
+        )
+        #expect(dict["email"] as? String == "sarah@example.com")
+        #expect(dict["phone"] as? String == "555-0123")
+        #expect(dict["status"] as? String == "invited")
+    }
+
+    @Test("An empty topic falls back to nil rather than writing a blank string")
+    func emptyTopicOmitted() {
+        let dict = Speaker.firestoreData(for: draft(topic: ""), status: .planned)
+        #expect(dict["topic"] == nil)
+    }
+}
