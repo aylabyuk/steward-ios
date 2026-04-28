@@ -25,11 +25,11 @@ struct InvitationStatusBannerView: View {
         BannerView.formatLastSeen(invitation.speakerLastSeenAt)
     }
 
-    private var invitedByLabel: String? {
-        BannerView.invitedByLabel(
-            inviterName: invitation.inviterName,
-            createdAt: invitation.createdAt
-        )
+    /// Provenance line shown under the pills. Status-aware — flips
+    /// from "INVITED BY..." to "SET MANUALLY BY..." to "FROM REPLY ·
+    /// APPLIED BY..." as the bishopric works through the lifecycle.
+    private var provenanceLabel: String? {
+        BannerView.statusProvenanceLabel(speaker: speaker, membersByUid: membersByUid)
     }
 
     var body: some View {
@@ -84,8 +84,8 @@ struct InvitationStatusBannerView: View {
                 currentUserUid: currentUserUid,
                 onChange: onChangeStatus
             )
-            if let invitedByLabel {
-                Text(invitedByLabel)
+            if let provenanceLabel {
+                Text(provenanceLabel)
                     .font(.monoEyebrow)
                     .tracking(1.0)
                     .foregroundStyle(Color.walnut3)

@@ -5,37 +5,49 @@ import StewardCore
 
 /// Pushed destination on the Schedule navigation stack — opens when
 /// a bishop taps a speaker / prayer name on the schedule. Branches on
-/// whether `speaker.invitationId` resolves to a real
-/// `speakerInvitations/{id}` doc — chat pane if it does, placeholder
-/// if it doesn't.
+/// whether the live speaker doc resolves an `invitationId` — chat
+/// pane if it does, placeholder if it doesn't.
 ///
-/// Subscribes to the invitation doc directly so the banner + thread
-/// stay live as the speaker's response or the bishop's status write
-/// lands.
+/// Owns two live subscriptions:
+///   * **Speaker / prayer doc** — for cross-device sync. When another
+///     bishopric member changes the status from web (or another iOS
+///     device), the change lands here and the banner + pills repaint
+///     without the bishop needing to back out.
+///   * **Invitation doc** — for `currentSpeakerStatus` mirror reads,
+///     `speakerLastSeenAt` heartbeat, and the bishopric participant
+///     snapshot the chat thread uses to resolve identities.
 ///
-/// Originally a bottom sheet; promoted to a navigation push because
-/// chat is a destination (Apple's own Messages, plus WhatsApp,
-/// Slack, etc. all push), keyboard handling on a push is cleaner
-/// than on a sheet, and the schedule-context-behind-it benefit
-/// didn't pay off on phone-sized screens.
+/// First-paint uses the snapshot the schedule passed in; the
+/// subscriptions supersede it once they emit.
 struct ConversationView: View {
     let wardId: String
+    let meetingDate: String
     let speakerId: String
     let kind: SlotKind
     let speaker: Speaker
     let auth: AuthClient
 
     @State private var invitationSubscription: DocSubscription<SpeakerInvitation>?
+    @State private var speakerSubscription: DocSubscription<Speaker>?
+
+    /// The freshest speaker we know about — live subscription if it
+    /// has emitted, otherwise the snapshot we were pushed with.
+    private var liveSpeaker: Speaker {
+        speakerSubscription?.data ?? speaker
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             content
         }
         .background(Color.parchment.ignoresSafeArea())
-        .navigationTitle(speaker.name)
+        .navigationTitle(liveSpeaker.name)
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: speaker.invitationId) {
-            ensureSubscription()
+        .task(id: liveSpeaker.invitationId) {
+            ensureInvitationSubscription()
+        }
+        .task {
+            ensureSpeakerSubscription()
         }
     }
 
@@ -45,27 +57,26 @@ struct ConversationView: View {
             if subscription.loading {
                 loading
             } else if let invitation = subscription.data,
-                      let invitationId = speaker.invitationId {
+                      let invitationId = liveSpeaker.invitationId {
                 ConversationChatView(
                     wardId: wardId,
                     speakerId: speakerId,
                     kind: kind,
-                    speaker: speaker,
+                    speaker: liveSpeaker,
                     invitation: invitation,
                     invitationId: invitationId,
                     auth: auth
                 )
             } else {
                 NoInvitationPlaceholderView(
-                    speakerName: speaker.name,
-                    speakerStatus: InvitationStatus(rawString: speaker.status) ?? .planned
+                    speakerName: liveSpeaker.name,
+                    speakerStatus: InvitationStatus(rawString: liveSpeaker.status) ?? .planned
                 )
             }
         } else {
-            // No invitationId on the speaker — render placeholder
             NoInvitationPlaceholderView(
-                speakerName: speaker.name,
-                speakerStatus: InvitationStatus(rawString: speaker.status) ?? .planned
+                speakerName: liveSpeaker.name,
+                speakerStatus: InvitationStatus(rawString: liveSpeaker.status) ?? .planned
             )
         }
     }
@@ -80,14 +91,34 @@ struct ConversationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func ensureSubscription() {
-        guard let invitationId = speaker.invitationId, invitationSubscription == nil else { return }
+    private func ensureInvitationSubscription() {
+        guard let invitationId = liveSpeaker.invitationId, invitationSubscription == nil else { return }
         let source = FirestoreDocSource(
             path: "wards/\(wardId)/speakerInvitations/\(invitationId)"
         )
         invitationSubscription = DocSubscription<SpeakerInvitation>(
             source: source,
             decoder: { try JSONDecoder().decode(SpeakerInvitation.self, from: $0) }
+        )
+    }
+
+    /// For speakers, subscribe to `meetings/{date}/speakers/{id}`.
+    /// For prayers, subscribe to `meetings/{date}/prayers/{role}` —
+    /// same field shape lets us decode straight into `Speaker`.
+    private func ensureSpeakerSubscription() {
+        guard speakerSubscription == nil else { return }
+        let path: String = {
+            switch kind {
+            case .speaker:
+                return "wards/\(wardId)/meetings/\(meetingDate)/speakers/\(speakerId)"
+            case .openingPrayer, .benediction:
+                return "wards/\(wardId)/meetings/\(meetingDate)/prayers/\(speakerId)"
+            }
+        }()
+        let source = FirestoreDocSource(path: path)
+        speakerSubscription = DocSubscription<Speaker>(
+            source: source,
+            decoder: { try JSONDecoder().decode(Speaker.self, from: $0) }
         )
     }
 }

@@ -34,19 +34,22 @@ struct SpeakerDecodingTests {
         // every time a status changes (manual via pills, or
         // speaker-response via Apply). The chat-banner pill confirm
         // dialog reads these to surface "X set the current status —
-        // override with care" copy.
+        // override with care" copy. `statusSetAt` is the timestamp
+        // the chat banner's status-provenance line formats.
         let json = """
         {
             "name": "Brother Tes Ting",
             "status": "confirmed",
             "statusSource": "speaker-response",
             "statusSetBy": "uid:abc123",
+            "statusSetAt": "2026-04-28T15:00:00Z",
             "invitationId": "inv_xyz"
         }
         """.data(using: .utf8)!
         let speaker = try JSONDecoder().decode(Speaker.self, from: json)
         #expect(speaker.statusSource == "speaker-response")
         #expect(speaker.statusSetBy == "uid:abc123")
+        #expect(speaker.statusSetAt == "2026-04-28T15:00:00Z")
         #expect(speaker.invitationId == "inv_xyz")
     }
 
@@ -56,6 +59,7 @@ struct SpeakerDecodingTests {
         let speaker = try JSONDecoder().decode(Speaker.self, from: json)
         #expect(speaker.statusSource == nil)
         #expect(speaker.statusSetBy == nil)
+        #expect(speaker.statusSetAt == nil)
         #expect(speaker.invitationId == nil)
     }
 

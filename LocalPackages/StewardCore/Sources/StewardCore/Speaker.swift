@@ -25,10 +25,17 @@ public struct Speaker: Codable, Sendable, Hashable {
     /// Free-form so a future source value doesn't crash the parse.
     /// Known values: `"manual"`, `"speaker-response"`.
     public let statusSource: String?
-    /// Twilio-style identity (`uid:{firebaseUid}`) of whoever last
-    /// stamped status. The chat-banner pill confirm dialog uses this
-    /// to surface "Override with care — X set this earlier" copy.
+    /// Firebase Auth uid of whoever last stamped status (a bishop
+    /// uid for either source — `applyResponseToSpeaker` stamps the
+    /// applying bishop, not the speaker). The chat-banner pill
+    /// confirm dialog uses this for the "X set the current status"
+    /// override prefix.
     public let statusSetBy: String?
+    /// ISO8601 string (Firestore Timestamp sanitized by
+    /// `FirestoreCollectionSource`) — when the most recent status
+    /// write happened. The chat banner formats this as the date
+    /// suffix on the provenance line.
+    public let statusSetAt: String?
     /// `wards/{wardId}/speakerInvitations/{invitationId}` document id
     /// linking this row to its invitation snapshot. Populated by the
     /// post-callable status flip after `sendSpeakerInvitation` returns.
@@ -45,6 +52,7 @@ public struct Speaker: Codable, Sendable, Hashable {
         order: Int? = nil,
         statusSource: String? = nil,
         statusSetBy: String? = nil,
+        statusSetAt: String? = nil,
         invitationId: String? = nil
     ) {
         self.name = name
@@ -56,6 +64,7 @@ public struct Speaker: Codable, Sendable, Hashable {
         self.order = order
         self.statusSource = statusSource
         self.statusSetBy = statusSetBy
+        self.statusSetAt = statusSetAt
         self.invitationId = invitationId
     }
 

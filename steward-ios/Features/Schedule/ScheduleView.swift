@@ -65,6 +65,7 @@ struct ScheduleView: View {
             .navigationDestination(for: ChatPresentation.self) { presentation in
                 ConversationView(
                     wardId: wardId,
+                    meetingDate: presentation.meetingDate,
                     speakerId: presentation.speakerId,
                     kind: presentation.kind,
                     speaker: presentation.speaker,

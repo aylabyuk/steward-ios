@@ -122,37 +122,94 @@ struct DeriveBannerViewTests {
     }
 }
 
-@Suite("BannerView.invitedByLabel — 'INVITED BY ORIEL ABSIN · APR 28'")
-struct InvitedByLabelTests {
+@Suite("BannerView.statusProvenanceLabel — 'SET MANUALLY BY ORIEL ABSIN · APR 28'")
+struct StatusProvenanceLabelTests {
 
     private func iso(month: Int, day: Int) -> String {
-        // Pin to noon UTC so timezone shifts don't move the day.
         String(format: "2026-%02d-%02dT12:00:00Z", month, day)
     }
 
-    @Test("Renders inviter name + abbreviated short date")
-    func happyPath() {
-        let label = BannerView.invitedByLabel(
-            inviterName: "Oriel Absin",
-            createdAt: iso(month: 4, day: 28)
+    private func speaker(
+        status: String?,
+        source: String?,
+        setBy: String? = "uid:bishop",
+        setAt: String? = "2026-04-28T12:00:00Z"
+    ) -> Speaker {
+        Speaker(
+            name: "Sister Davis",
+            status: status,
+            statusSource: source,
+            statusSetBy: setBy,
+            statusSetAt: setAt
         )
-        #expect(label?.contains("ORIEL ABSIN") == true)
+    }
+
+    @Test("Manual invited → 'INVITED BY {name} · {date}'")
+    func manualInvited() {
+        let label = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "invited", source: "manual"),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(label?.contains("INVITED BY ORIEL ABSIN") == true)
         #expect(label?.contains("APR 28") == true)
     }
 
-    @Test("Missing inviter name returns nil — banner hides the row")
-    func missingInviterName() {
-        #expect(BannerView.invitedByLabel(inviterName: nil, createdAt: iso(month: 4, day: 28)) == nil)
+    @Test("Manual confirmed/declined → 'SET MANUALLY BY {name} · {date}' (not 'CONFIRMED BY')")
+    func manualTerminal() {
+        // Mirrors the web's verb mapping at statusProvenance.ts:47-62 —
+        // confirmed/declined manual writes both render as "set manually"
+        // because the action is the bishopric override, not the
+        // speaker's response.
+        let confirmed = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "confirmed", source: "manual"),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(confirmed?.contains("SET MANUALLY") == true)
+
+        let declined = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "declined", source: "manual"),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(declined?.contains("SET MANUALLY") == true)
     }
 
-    @Test("Missing date returns nil — incomplete data hides the row")
+    @Test("Speaker-response → 'FROM REPLY · APPLIED BY {name} · {date}'")
+    func speakerResponseApplied() {
+        let label = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "confirmed", source: "speaker-response"),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(label?.contains("FROM REPLY") == true)
+        #expect(label?.contains("APPLIED BY ORIEL ABSIN") == true)
+    }
+
+    @Test("Unknown setBy uid renders without the 'BY {name}' suffix")
+    func unknownActor() {
+        let label = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "invited", source: "manual", setBy: "uid:stranger"),
+            membersByUid: [:] // no member resolved
+        )
+        #expect(label?.contains("INVITED") == true)
+        #expect(label?.contains("BY ") == false || label?.contains("BY APR") == true)
+    }
+
+    @Test("Missing statusSource returns nil — pre-rollout docs hide the line")
+    func missingSource() {
+        let label = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "invited", source: nil),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(label == nil)
+    }
+
+    @Test("Missing statusSetAt still renders — date suffix just gets dropped")
     func missingDate() {
-        #expect(BannerView.invitedByLabel(inviterName: "Oriel", createdAt: nil) == nil)
-    }
-
-    @Test("Malformed date returns nil rather than rendering a junk label")
-    func malformedDate() {
-        #expect(BannerView.invitedByLabel(inviterName: "Oriel", createdAt: "not-a-date") == nil)
+        let label = BannerView.statusProvenanceLabel(
+            speaker: speaker(status: "invited", source: "manual", setAt: nil),
+            membersByUid: ["uid:bishop": "Oriel Absin"]
+        )
+        #expect(label?.contains("INVITED BY ORIEL ABSIN") == true)
+        #expect(label?.contains("APR 28") == false)
     }
 }
 

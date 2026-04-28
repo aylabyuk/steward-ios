@@ -10,41 +10,21 @@ struct ConversationChatView: View {
     let wardId: String
     let speakerId: String
     let kind: SlotKind
+    /// Live speaker doc passed from `ConversationView`'s subscription.
+    /// Updates whenever Firestore emits — drives the banner + pills
+    /// without any local @State, so cross-device status changes
+    /// (web ↔ iOS, iOS ↔ iOS) repaint the moment the write lands.
+    let speaker: Speaker
     let invitation: SpeakerInvitation
     let invitationId: String
     @Environment(TwilioChatClient.self) private var twilio
     let auth: AuthClient
 
-    /// Local mirror of the speaker doc, seeded from the snapshot the
-    /// schedule passed in. Held as `@State` so a status change writes
-    /// optimistically + the banner / pills re-render without waiting
-    /// for the Firestore subscription on the schedule to propagate
-    /// (which the pushed view doesn't see — it captured the snapshot
-    /// at tap time).
-    @State private var speaker: Speaker
     @State private var observer: ConversationObserver?
     @State private var loadError: String?
     @State private var isApplying: Bool = false
     @State private var isSending: Bool = false
     @State private var applyError: String?
-
-    init(
-        wardId: String,
-        speakerId: String,
-        kind: SlotKind,
-        speaker: Speaker,
-        invitation: SpeakerInvitation,
-        invitationId: String,
-        auth: AuthClient
-    ) {
-        self.wardId = wardId
-        self.speakerId = speakerId
-        self.kind = kind
-        self.invitation = invitation
-        self.invitationId = invitationId
-        self.auth = auth
-        self._speaker = State(initialValue: speaker)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -189,21 +169,11 @@ struct ConversationChatView: View {
                         setBy: bishopUid
                     )
                 }
-                // Optimistic local refresh — the pushed view doesn't
-                // see the schedule's CollectionSubscription update,
-                // so reconstruct the speaker so banner + pills repaint.
-                speaker = Speaker(
-                    name: speaker.name,
-                    email: speaker.email,
-                    phone: speaker.phone,
-                    topic: speaker.topic,
-                    status: next.rawValue,
-                    role: speaker.role,
-                    order: speaker.order,
-                    statusSource: "manual",
-                    statusSetBy: bishopUid,
-                    invitationId: speaker.invitationId
-                )
+                // No local optimistic update — `ConversationView`'s
+                // `DocSubscription<Speaker>` will emit the new state
+                // moments after the Firestore write lands (typically
+                // <100ms locally), and that supersedes the snapshot
+                // for both the banner + pills.
                 await InvitationStatusMirror.mirrorCurrentSpeakerStatus(
                     wardId: wardId,
                     invitationId: invitationId,

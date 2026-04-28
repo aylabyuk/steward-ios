@@ -103,21 +103,66 @@ public enum BannerView {
         )
     }
 
-    /// Compose the "INVITED BY ORIEL ABSIN · APR 28" sub-line under
-    /// the status pills. Returns nil for incomplete or unparseable
-    /// inputs so the banner can hide the row entirely (no half-baked
-    /// "INVITED BY · " strings).
-    public static func invitedByLabel(
-        inviterName: String?,
-        createdAt: String?,
+    /// Compose the status-provenance sub-line under the pills:
+    /// `"INVITED BY ORIEL ABSIN · APR 28"`,
+    /// `"SET MANUALLY BY ORIEL ABSIN · APR 28"`,
+    /// `"FROM REPLY · APPLIED BY ORIEL ABSIN · APR 28"`.
+    /// Pure port of the web's `statusProvenanceLabel` at
+    /// `src/features/schedule/utils/statusProvenance.ts:32-45`. Returns
+    /// nil only when the speaker doc is missing `statusSource` (legacy
+    /// pre-rollout rows) so the banner can hide the line entirely.
+    public static func statusProvenanceLabel(
+        speaker: Speaker,
+        membersByUid: [String: String],
         locale: Locale = .current
     ) -> String? {
-        guard let inviterName, inviterName.isEmpty == false else { return nil }
-        guard let date = parseISO8601(createdAt) else { return nil }
-        var style = Date.FormatStyle().month(.abbreviated).day().locale(locale)
-        style.timeZone = .current
-        let dateLabel = date.formatted(style)
-        return "INVITED BY \(inviterName) · \(dateLabel)".uppercased()
+        guard let source = speaker.statusSource else { return nil }
+        let actorUid = speaker.statusSetBy
+        let actorName: String? = {
+            guard let actorUid else { return nil }
+            // The web stamps `uid:{firebaseUid}` on Twilio identities
+            // but raw `{firebaseUid}` on the Firestore doc. Lookup
+            // tolerates both — the chat sheet's `membersByUid` map is
+            // keyed on `uid:{...}` per the Twilio identity scheme.
+            return membersByUid[actorUid]
+                ?? membersByUid["uid:\(actorUid)"]
+                ?? (actorUid.hasPrefix("uid:") ? membersByUid[actorUid] : nil)
+        }()
+        let verb = statusVerb(status: speaker.status ?? "planned", source: source)
+        let dateSuffix: String? = {
+            guard let date = parseISO8601(speaker.statusSetAt) else { return nil }
+            var style = Date.FormatStyle().month(.abbreviated).day().locale(locale)
+            style.timeZone = .current
+            return date.formatted(style)
+        }()
+        var pieces: [String] = []
+        if source == "speaker-response" {
+            pieces.append(verb)
+            if let actorName {
+                pieces.append("· APPLIED BY \(actorName.uppercased())")
+            } else {
+                pieces.append("· APPLIED")
+            }
+        } else {
+            pieces.append(verb)
+            if let actorName {
+                pieces.append("BY \(actorName.uppercased())")
+            }
+        }
+        if let dateSuffix {
+            pieces.append("· \(dateSuffix.uppercased())")
+        }
+        return pieces.joined(separator: " ")
+    }
+
+    private static func statusVerb(status: String, source: String) -> String {
+        if source == "speaker-response" { return "FROM REPLY" }
+        switch status {
+        case "planned":   return "PLANNED"
+        case "invited":   return "INVITED"
+        case "confirmed", "declined": return "SET MANUALLY"
+        default:           return status.uppercased()
+        }
     }
 
     /// Format `speakerLastSeenAt` as a human-readable label. Mirrors

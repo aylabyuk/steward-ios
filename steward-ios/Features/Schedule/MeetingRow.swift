@@ -296,7 +296,11 @@ struct MeetingCardBody: View {
         let assigned = assignee?.isEmpty == false
         let chatHandler: (() -> Void)? = {
             guard assigned, let assignment, let onOpenChat else { return nil }
-            guard let presentation = ChatPresentation.forPrayer(kind: kind, assignment: assignment) else { return nil }
+            guard let presentation = ChatPresentation.forPrayer(
+                meetingDate: date,
+                kind: kind,
+                assignment: assignment
+            ) else { return nil }
             return { onOpenChat(presentation) }
         }()
         return SlotRow(
@@ -316,6 +320,7 @@ struct MeetingCardBody: View {
         guard let speakerItem = slot.speaker, let onOpenChat else { return nil }
         let presentation = ChatPresentation(
             kind: .speaker,
+            meetingDate: date,
             speakerId: speakerItem.id,
             speaker: speakerItem.data
         )
