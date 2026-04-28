@@ -76,10 +76,10 @@ struct MeetingTypeBadgeTests {
     }
 
     @Test(
-        "Stake / general conference Sundays render a bordeaux-toned badge",
+        "Stake / general conference Sundays render a bordeaux-toned badge — abbreviated to fit the header on one line, full name lives in the body stamp",
         arguments: [
-            (type: "stake",   label: "Stake Conference"),
-            (type: "general", label: "General Conference"),
+            (type: "stake",   label: "Stake Conf."),
+            (type: "general", label: "General Conf."),
         ]
     )
     func stakeAndGeneral(type: String, label: String) {

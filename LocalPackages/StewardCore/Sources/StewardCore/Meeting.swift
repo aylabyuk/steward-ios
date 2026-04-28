@@ -104,6 +104,14 @@ public extension Meeting {
         meetingType == "fast"
     }
 
+    /// Label for the ⋯-menu's "plan / view" entry. Reads "Plan Sacrament
+    /// Meeting" when no doc has been written yet, "View Meeting" once one
+    /// exists. Pure helper so the menu can render the right copy
+    /// reactively as the meeting subscription resolves.
+    static func planActionLabel(meeting: Meeting?) -> String {
+        meeting == nil ? "Plan Sacrament Meeting" : "View Meeting"
+    }
+
     /// Inferred type for a Sunday slot when no meeting doc exists yet.
     /// First Sunday of the month → "fast", everything else → "regular".
     /// Mirrors the web's `defaultMeetingType` (minus the
@@ -128,15 +136,21 @@ public extension Meeting {
     /// (the row stays visually quiet); fast / stake / general carry their
     /// own status tone. Mirrors the web's MobileSundayBlock type tags.
     ///
+    /// Deviation from the web: stake / general use the abbreviated forms
+    /// "Stake Conf." / "General Conf." — on a phone the full names would
+    /// push the date headline ("May 24") onto two lines. The body stamp
+    /// directly below the badge spells the full name out, so the badge
+    /// only needs to be a quick marker.
+    ///
     /// Returns `nil` when no badge should be drawn.
     var typeBadge: (label: String, tone: StatusBadge.Tone)? {
         switch meetingType {
         case "fast":
             return ("Fast & Testimony", .pending)
         case "stake":
-            return ("Stake Conference", .destructive)
+            return ("Stake Conf.", .destructive)
         case "general":
-            return ("General Conference", .destructive)
+            return ("General Conf.", .destructive)
         default:
             return nil
         }

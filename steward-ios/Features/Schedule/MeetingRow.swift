@@ -11,6 +11,7 @@ import StewardCore
 struct MeetingCardHeader: View {
     let date: String
     let meeting: Meeting?
+    let wardId: String
 
     /// Injected for previews / tests. Production callers leave the default.
     var today: Date = Date()
@@ -51,8 +52,32 @@ struct MeetingCardHeader: View {
 
     private var overflowMenu: some View {
         Menu {
-            Button("View details") { /* future — push detail */ }
-            Button("Edit") { /* future — push editor */ }
+            Section {
+                Button(action: planAction) {
+                    Label(
+                        Meeting.planActionLabel(meeting: meeting),
+                        systemImage: meeting == nil ? "calendar.badge.plus" : "list.bullet.clipboard"
+                    )
+                }
+            }
+            Section("Sunday Type") {
+                ForEach(SundayTypeOption.all) { option in
+                    Button {
+                        commitType(option.raw)
+                    } label: {
+                        // Native iOS Menu treats an empty systemImage as
+                        // "no icon", so the active option gets a checkmark
+                        // and the others stay flush-left. Mirrors the web's
+                        // bordeaux-dot active marker without needing a
+                        // custom row.
+                        if option.raw == effectiveType {
+                            Label(option.label, systemImage: "checkmark")
+                        } else {
+                            Text(option.label)
+                        }
+                    }
+                }
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.body.weight(.semibold))
@@ -62,6 +87,33 @@ struct MeetingCardHeader: View {
         }
         .menuStyle(.button)
         .accessibilityLabel("Meeting actions")
+    }
+
+    /// The currently-active type — from the doc when one exists, else the
+    /// inferred fallback (first-Sunday-of-month → fast, otherwise regular).
+    /// Drives which menu row gets the checkmark.
+    private var effectiveType: String {
+        meeting?.meetingType ?? Meeting.fallbackType(forDate: date)
+    }
+
+    private func planAction() {
+        // Future — push to the planning view. The destination decides
+        // whether to render the "start" or "view" experience based on
+        // the meeting doc state, mirroring the label logic above.
+    }
+
+    private func commitType(_ type: String) {
+        guard type != effectiveType else { return }
+        Task {
+            do {
+                try await MeetingsClient.setMeetingType(wardId: wardId, date: date, type: type)
+            } catch {
+                // TODO: surface a toast / inline error once we have a
+                // shared UI affordance for save failures. Silent failures
+                // are OK in Phase 0 — the user sees the unchanged
+                // checkmark when the listener re-fires.
+            }
+        }
     }
 }
 
@@ -98,15 +150,19 @@ struct MeetingCardBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if effectiveIsTestimonyMeeting {
-                testimonyNote
-                slotDivider
+            if effectiveKind.isSpecial {
+                specialStamp(kind: effectiveKind)
+                if effectiveKind.hasLocalProgram {
+                    slotDivider
+                }
             } else {
                 speakerRows
             }
-            prayerRow(label: "OP", role: "Invocation", assignee: meeting?.openingPrayerName)
-            slotDivider
-            prayerRow(label: "CP", role: "Benediction", assignee: meeting?.benedictionName)
+            if effectiveKind.hasLocalProgram {
+                prayerRow(label: "OP", role: "Invocation", assignee: meeting?.openingPrayerName)
+                slotDivider
+                prayerRow(label: "CP", role: "Benediction", assignee: meeting?.benedictionName)
+            }
         }
         .padding(.horizontal, Spacing.s4)
         .padding(.top, Spacing.s2)
@@ -115,6 +171,14 @@ struct MeetingCardBody: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.border).frame(height: 0.5)
         }
+    }
+
+    /// The card's effective `MeetingKind` — driven by the doc's
+    /// `meetingType` when present, otherwise inferred from the date
+    /// (first Sunday of the month → fast).
+    private var effectiveKind: MeetingKind {
+        let raw = meeting?.meetingType ?? Meeting.fallbackType(forDate: date)
+        return MeetingKind(rawType: raw)
     }
 
     /// Prayer-giver row. Same shell as a speaker row, with the role label
@@ -136,10 +200,6 @@ struct MeetingCardBody: View {
         )
     }
 
-    private var effectiveIsTestimonyMeeting: Bool {
-        if let meeting { return meeting.isTestimonyMeeting }
-        return Meeting.fallbackType(forDate: date) == "fast"
-    }
 
     private var speakerRows: some View {
         let slots = Speaker.slots(speakers.items, minSlotCount: Self.minSpeakerSlots)
@@ -155,19 +215,29 @@ struct MeetingCardBody: View {
         }
     }
 
-    private var testimonyNote: some View {
+    /// Centered "stamp" rendered in place of the speaker list for fast,
+    /// stake, and general Sundays. Shape matches the web's
+    /// `SundayCardSpecial` (icon + uppercased label + italic-serif
+    /// description). Tone follows `MeetingKind.stampTone` so fast reads
+    /// brass and stake/general read bordeaux.
+    @ViewBuilder
+    private func specialStamp(kind: MeetingKind) -> some View {
         HStack(alignment: .center, spacing: Spacing.s3) {
             Image(systemName: "star.circle")
                 .font(.title3)
-                .foregroundStyle(Color.brassDeep)
+                .foregroundStyle(kind.stampTone.foreground)
             VStack(alignment: .leading, spacing: 2) {
-                Text("TESTIMONY MEETING")
-                    .font(.monoEyebrow)
-                    .tracking(1.4)
-                    .foregroundStyle(Color.brassDeep)
-                Text("No assigned speakers — member testimonies.")
-                    .font(.serifAside)
-                    .foregroundStyle(Color.walnut2)
+                if let label = kind.stampLabel {
+                    Text(label.uppercased())
+                        .font(.monoEyebrow)
+                        .tracking(1.4)
+                        .foregroundStyle(kind.stampTone.foreground)
+                }
+                if let description = kind.stampDescription {
+                    Text(description)
+                        .font(.serifAside)
+                        .foregroundStyle(Color.walnut2)
+                }
             }
         }
         .padding(.vertical, Spacing.s3)

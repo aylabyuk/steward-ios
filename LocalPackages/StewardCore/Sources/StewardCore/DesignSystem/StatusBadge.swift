@@ -25,6 +25,11 @@ public struct StatusBadge: View {
         Text(label.uppercased())
             .font(.monoMicro)
             .tracking(1.2)
+            .lineLimit(1)
+            // Claim natural width and never wrap — long labels like
+            // "General Conference" must stay on one line so every card
+            // header strip is the same height.
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, Spacing.s3)
             .padding(.vertical, 5)
             .foregroundStyle(tone.foreground)

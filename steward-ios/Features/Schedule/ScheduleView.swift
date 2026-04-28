@@ -78,7 +78,7 @@ struct ScheduleView: View {
                                 wardId: wardId
                             )
                         } header: {
-                            MeetingCardHeader(date: date, meeting: byDate[date])
+                            MeetingCardHeader(date: date, meeting: byDate[date], wardId: wardId)
                         }
                     }
                     horizonFooter
