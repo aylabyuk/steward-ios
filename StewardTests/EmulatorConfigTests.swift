@@ -1,5 +1,5 @@
 import Testing
-@testable import steward_ios
+import StewardCore
 
 @Suite("EmulatorConfig environment parsing")
 struct EmulatorConfigTests {

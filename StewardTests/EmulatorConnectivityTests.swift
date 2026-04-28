@@ -1,11 +1,14 @@
 import Testing
-@testable import steward_ios
 
-// Firebase iOS SDK 12.x has a SwiftPM transitive-linking bug on Xcode 26 that
-// prevents FirebaseFirestore_PackageProduct.framework from linking abseil
-// symbols inside the test bundle (the app target itself links cleanly).
-// Tracked at https://github.com/firebase/firebase-ios-sdk/issues/15642 — when
-// upstream resolves it, drop the `false &&` guard below and re-enable.
+// Integration tests against the real Firebase emulators are deferred while the
+// Firebase iOS SDK 12.x SwiftPM transitive-linking bug on Xcode 26 is open
+// (https://github.com/firebase/firebase-ios-sdk/issues/15642). The test target
+// is currently standalone (no app dependency, no Firebase products linked) so
+// `xcodebuild test` works for pure-unit tests against StewardCore mocks.
+// When the upstream bug is fixed, re-add Firebase products to the test target,
+// restore TEST_HOST + the app target dependency in project.pbxproj, drop the
+// `false &&` guard below, and replace `import` with whatever Firebase imports
+// the bodies need.
 #if false && canImport(FirebaseFirestore)
 import FirebaseAuth
 import FirebaseFirestore

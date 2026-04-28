@@ -1,4 +1,5 @@
 import Foundation
+import StewardCore
 
 #if canImport(FirebaseCore)
 import FirebaseCore

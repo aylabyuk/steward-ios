@@ -10,20 +10,11 @@
 		BEE63BC22FA05FCE002CF39C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC12FA05FCE002CF39C /* FirebaseAuth */; };
 		BEE63BC42FA05FD4002CF39C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC32FA05FD4002CF39C /* FirebaseFirestore */; };
 		BEE63BC62FA05FE5002CF39C /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC52FA05FE5002CF39C /* FirebaseFunctions */; };
-		BEE63BC82FA05FF9002CF39C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC72FA05FF9002CF39C /* FirebaseAuth */; };
-		BEE63BCA2FA0600B002CF39C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC92FA0600B002CF39C /* FirebaseFirestore */; };
-		BEE63BCC2FA06012002CF39C /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BCB2FA06012002CF39C /* FirebaseFunctions */; };
+		BEE63CC72FA0684E002CF39C /* abseil in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BD22FA10002002CF39C /* abseil */; };
+		BEE63CC82FA0684E002CF39C /* gRPC-C++ in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BD32FA10003002CF39C /* gRPC-C++ */; };
+		BEE63D032FA20003002CF39C /* StewardCore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63D012FA20001002CF39C /* StewardCore */; };
+		BEE63D042FA20004002CF39C /* StewardCore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63D022FA20002002CF39C /* StewardCore */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		BEE63BB72FA05E11002CF39C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = BEE63B6A2FA04C99002CF39C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = BEE63B712FA04C99002CF39C;
-			remoteInfo = "steward-ios";
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		BEE63B722FA04C99002CF39C /* steward-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "steward-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -48,9 +39,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BEE63CC82FA0684E002CF39C /* gRPC-C++ in Frameworks */,
+				BEE63CC72FA0684E002CF39C /* abseil in Frameworks */,
 				BEE63BC62FA05FE5002CF39C /* FirebaseFunctions in Frameworks */,
 				BEE63BC22FA05FCE002CF39C /* FirebaseAuth in Frameworks */,
 				BEE63BC42FA05FD4002CF39C /* FirebaseFirestore in Frameworks */,
+				BEE63D032FA20003002CF39C /* StewardCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,9 +52,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BEE63BCC2FA06012002CF39C /* FirebaseFunctions in Frameworks */,
-				BEE63BC82FA05FF9002CF39C /* FirebaseAuth in Frameworks */,
-				BEE63BCA2FA0600B002CF39C /* FirebaseFirestore in Frameworks */,
+				BEE63D042FA20004002CF39C /* StewardCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +110,7 @@
 				BEE63BC52FA05FE5002CF39C /* FirebaseFunctions */,
 				BEE63BD22FA10002002CF39C /* abseil */,
 				BEE63BD32FA10003002CF39C /* gRPC-C++ */,
+				BEE63D012FA20001002CF39C /* StewardCore */,
 			);
 			productName = "steward-ios";
 			productReference = BEE63B722FA04C99002CF39C /* steward-ios.app */;
@@ -134,18 +127,13 @@
 			buildRules = (
 			);
 			dependencies = (
-				BEE63BB82FA05E11002CF39C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BEE63BB42FA05E11002CF39C /* StewardTests */,
 			);
 			name = StewardTests;
 			packageProductDependencies = (
-				BEE63BC72FA05FF9002CF39C /* FirebaseAuth */,
-				BEE63BC92FA0600B002CF39C /* FirebaseFirestore */,
-				BEE63BCB2FA06012002CF39C /* FirebaseFunctions */,
-				BEE63BD42FA10004002CF39C /* abseil */,
-				BEE63BD52FA10005002CF39C /* gRPC-C++ */,
+				BEE63D022FA20002002CF39C /* StewardCore */,
 			);
 			productName = StewardTests;
 			productReference = BEE63BB32FA05E11002CF39C /* StewardTests.xctest */;
@@ -183,6 +171,7 @@
 				BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */,
 				BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */,
+				BEE63D002FA20000002CF39C /* XCLocalSwiftPackageReference "LocalPackages/StewardCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BEE63B732FA04C99002CF39C /* Products */;
@@ -228,14 +217,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		BEE63BB82FA05E11002CF39C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BEE63B712FA04C99002CF39C /* steward-ios */;
-			targetProxy = BEE63BB72FA05E11002CF39C /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BEE63B7B2FA04C9A002CF39C /* Debug */ = {
@@ -418,7 +399,6 @@
 		BEE63BBA2FA05E11002CF39C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 49AC3WCTNX;
@@ -432,14 +412,12 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/steward-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/steward-ios";
 			};
 			name = Debug;
 		};
 		BEE63BBB2FA05E11002CF39C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 49AC3WCTNX;
@@ -453,7 +431,6 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/steward-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/steward-ios";
 			};
 			name = Release;
 		};
@@ -488,6 +465,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		BEE63D002FA20000002CF39C /* XCLocalSwiftPackageReference "LocalPackages/StewardCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "LocalPackages/StewardCore";
+		};
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
@@ -566,6 +550,14 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */;
 			productName = "gRPC-C++";
+		};
+		BEE63D012FA20001002CF39C /* StewardCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = StewardCore;
+		};
+		BEE63D022FA20002002CF39C /* StewardCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = StewardCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

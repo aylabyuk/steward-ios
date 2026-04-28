@@ -1,4 +1,5 @@
 import SwiftUI
+import StewardCore
 
 struct RootView: View {
     var body: some View {
