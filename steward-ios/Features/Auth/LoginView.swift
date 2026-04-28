@@ -118,15 +118,49 @@ struct LoginView: View {
     @ViewBuilder
     private var debugShortcut: some View {
         if EmulatorConfig.isEnabled {
-            VStack(spacing: Spacing.s2) {
+            VStack(spacing: Spacing.s3) {
                 Text("DEBUG · EMULATOR ONLY")
                     .font(.monoMicro)
                     .tracking(1.2)
                     .foregroundStyle(Color.walnut3)
+
                 Button("Sign in as bishop@e2e.local", action: signInAsBishop)
                     .buttonStyle(.glass)
                     .tint(Color.brass)
                     .disabled(isSubmitting)
+
+                // Email + password sign-in for arbitrary ward members.
+                // The Auth emulator creates the user on first sign-in
+                // (any password is accepted), so as long as a `members`
+                // doc exists for this email under the ward, the access
+                // gate resolves and the schedule loads.
+                VStack(spacing: Spacing.s2) {
+                    TextField("you@example.com", text: $debugEmail)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(Spacing.s3)
+                        .background(Color.parchment, in: .rect(cornerRadius: Radius.default))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.default)
+                                .stroke(Color.border, lineWidth: 0.5)
+                        )
+
+                    SecureField("password (any)", text: $debugPassword)
+                        .textContentType(.password)
+                        .padding(Spacing.s3)
+                        .background(Color.parchment, in: .rect(cornerRadius: Radius.default))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.default)
+                                .stroke(Color.border, lineWidth: 0.5)
+                        )
+
+                    Button("Sign in with email", action: signInWithDebugEmail)
+                        .buttonStyle(.glass)
+                        .tint(Color.brass)
+                        .disabled(isSubmitting || debugEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
             .padding(.top, Spacing.s2)
         }
@@ -144,6 +178,22 @@ struct LoginView: View {
         isSubmitting = true
         Task {
             await auth.signIn(email: "bishop@e2e.local", password: "test1234")
+            isSubmitting = false
+        }
+    }
+
+    private func signInWithDebugEmail() {
+        let email = debugEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard email.isEmpty == false else { return }
+        // Auth emulator accepts any non-empty password — pad with a
+        // placeholder when the field is left blank so the SDK doesn't
+        // bail on length validation.
+        let password = debugPassword.isEmpty ? "test1234" : debugPassword
+        isSubmitting = true
+        Task {
+            // Sign-in-or-create — the bishop's email may already have
+            // a `members` doc in their ward but no Auth user yet.
+            await auth.debugSignInOrCreate(email: email, password: password)
             isSubmitting = false
         }
     }
