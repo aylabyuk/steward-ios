@@ -240,7 +240,7 @@ struct MeetingCardBody: View {
             SlotRow(
                 label: slot.label,
                 assignee: slot.speaker?.data.name,
-                topic: slot.speaker?.data.topic,
+                topic: slot.speaker?.data.displayTopic,
                 status: slot.speaker?.data.status,
                 showStatus: slot.speaker != nil,
                 assignKind: slot.speaker == nil ? .speaker : nil,

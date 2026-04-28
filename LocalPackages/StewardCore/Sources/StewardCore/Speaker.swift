@@ -39,6 +39,18 @@ public struct Speaker: Codable, Sendable, Equatable {
         self.order = order
     }
 
+    /// What the schedule row shows beneath the speaker's name in the
+    /// italic-serif subtitle slot. Falls back to "Topic of Choice"
+    /// when the bishopric hasn't (yet) recorded a topic — keeps the
+    /// row visually balanced and tells the bishop the speaker has
+    /// freedom to choose. The letter template uses a wordier
+    /// equivalent ("a topic of your choosing"); the schedule row
+    /// stays terser.
+    public var displayTopic: String {
+        let trimmed = topic?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "Topic of Choice" : trimmed
+    }
+
     /// Stable sort: ascending by `order`, with un-ordered docs going to the
     /// end (tiebreak on `id`) so a missing `order` doesn't shuffle the list
     /// each time Firestore re-emits.

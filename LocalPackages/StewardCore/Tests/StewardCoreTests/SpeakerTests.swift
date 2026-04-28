@@ -91,6 +91,40 @@ struct SpeakerSlotLabelTests {
     }
 }
 
+@Suite("Speaker.displayTopic — what the schedule row shows under the speaker name")
+struct SpeakerDisplayTopicTests {
+
+    private func speaker(topic: String?) -> Speaker {
+        Speaker(name: "Sarah", topic: topic, status: nil, role: nil, order: nil)
+    }
+
+    @Test("A real topic is returned verbatim")
+    func realTopic() {
+        #expect(speaker(topic: "Faith").displayTopic == "Faith")
+    }
+
+    @Test("Nil topic falls back to 'Topic of Choice' so the row never reads empty")
+    func nilTopic() {
+        #expect(speaker(topic: nil).displayTopic == "Topic of Choice")
+    }
+
+    @Test("Empty topic falls back to the same placeholder")
+    func emptyTopic() {
+        #expect(speaker(topic: "").displayTopic == "Topic of Choice")
+    }
+
+    @Test("Whitespace-only topic falls back too — bishop typed and erased")
+    func whitespaceTopic() {
+        #expect(speaker(topic: "   ").displayTopic == "Topic of Choice")
+        #expect(speaker(topic: "\t\n").displayTopic == "Topic of Choice")
+    }
+
+    @Test("Topic with leading/trailing whitespace is trimmed before display")
+    func trimsRealTopic() {
+        #expect(speaker(topic: "  Faith  ").displayTopic == "Faith")
+    }
+}
+
 @Suite("Speaker.canAddMore — when the schedule card surfaces an Add row")
 struct SpeakerCanAddMoreTests {
 
