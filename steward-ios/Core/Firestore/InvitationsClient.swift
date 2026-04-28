@@ -44,6 +44,33 @@ enum InvitationsClient {
         return ref.documentID
     }
 
+    /// Patches just the `status` field of an existing speaker doc. Used
+    /// after the `sendSpeakerInvitation` callable returns: the callable
+    /// creates the invitation doc + Twilio Conversation but doesn't flip
+    /// the speaker doc's status, so we do it here. Mirrors the web's
+    /// post-callable `updateSpeaker(... { status })` at
+    /// `usePrepareInvitationActions.ts:117`.
+    static func updateSpeakerStatus(
+        wardId: String,
+        meetingDate: String,
+        speakerId: String,
+        status: InvitationStatus,
+        invitationId: String? = nil
+    ) async throws {
+        var data: [String: Any] = [
+            "status": status.rawValue,
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+        if let invitationId {
+            data["invitationId"] = invitationId
+        }
+        let ref = Firestore.firestore()
+            .collection("wards").document(wardId)
+            .collection("meetings").document(meetingDate)
+            .collection("speakers").document(speakerId)
+        try await ref.setData(data, merge: true)
+    }
+
     /// Patches the meeting doc's inline prayer Assignment (`openingPrayer`
     /// or `benediction`). Uses `setData(merge: true)` so the meeting doc
     /// is created if missing and untouched fields stay intact. Empty /
@@ -77,6 +104,35 @@ enum InvitationsClient {
             .collection("meetings").document(meetingDate)
         try await ref.setData([
             field: assignment,
+            "updatedAt": FieldValue.serverTimestamp(),
+        ], merge: true)
+    }
+
+    /// Patches just the `status` field of the inline prayer Assignment
+    /// after the `sendSpeakerInvitation` callable returns. Same indirection
+    /// rationale as `updateSpeakerStatus`: the callable writes the prayer
+    /// participant subcollection but iOS reads the inline meeting field
+    /// (web-deviations.md "Inline-status field on meeting Assignment"), so
+    /// we mirror the status here.
+    static func updatePrayerAssignmentStatus(
+        wardId: String,
+        meetingDate: String,
+        kind: SlotKind,
+        status: InvitationStatus,
+        invitationId: String? = nil
+    ) async throws {
+        guard let field = kind.meetingField else { return }
+        var assignmentPatch: [String: Any] = [
+            "status": status.rawValue,
+        ]
+        if let invitationId {
+            assignmentPatch["invitationId"] = invitationId
+        }
+        let ref = Firestore.firestore()
+            .collection("wards").document(wardId)
+            .collection("meetings").document(meetingDate)
+        try await ref.setData([
+            field: assignmentPatch,
             "updatedAt": FieldValue.serverTimestamp(),
         ], merge: true)
     }

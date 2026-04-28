@@ -6,6 +6,7 @@ struct RootView: View {
     @State private var auth = AuthClient()
     @State private var currentWard = CurrentWard()
     @State private var wardAccess = WardAccessClient(source: nil)
+    @State private var twilio = TwilioChatClient()
 
     var body: some View {
         Group {
@@ -16,8 +17,15 @@ struct RootView: View {
             }
         }
         .animation(.default, value: auth.isSignedIn)
+        .environment(twilio)
         .onChange(of: auth.email) { _, newEmail in
             rewireWardAccess(for: newEmail)
+        }
+        .onChange(of: auth.isSignedIn) { _, signedIn in
+            // Sign-out tears down the Twilio session so a re-sign-in
+            // mints a fresh token + identity rather than reusing the
+            // last user's connection.
+            if !signedIn { twilio.disconnect() }
         }
         .onChange(of: wardAccess.state) { _, state in
             currentWard.resolve(from: state)

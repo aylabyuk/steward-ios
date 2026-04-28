@@ -28,6 +28,37 @@ struct SpeakerDecodingTests {
         #expect(speaker.topic == "Faith")
     }
 
+    @Test("Status provenance fields decode when the web (or iOS post-callable) writes them")
+    func provenanceFields() throws {
+        // The web stamps `statusSource`, `statusSetBy`, and `statusSetAt`
+        // every time a status changes (manual via pills, or
+        // speaker-response via Apply). The chat-banner pill confirm
+        // dialog reads these to surface "X set the current status —
+        // override with care" copy.
+        let json = """
+        {
+            "name": "Brother Tes Ting",
+            "status": "confirmed",
+            "statusSource": "speaker-response",
+            "statusSetBy": "uid:abc123",
+            "invitationId": "inv_xyz"
+        }
+        """.data(using: .utf8)!
+        let speaker = try JSONDecoder().decode(Speaker.self, from: json)
+        #expect(speaker.statusSource == "speaker-response")
+        #expect(speaker.statusSetBy == "uid:abc123")
+        #expect(speaker.invitationId == "inv_xyz")
+    }
+
+    @Test("Provenance fields are optional — pre-rollout docs still decode")
+    func provenanceOptional() throws {
+        let json = #"{"name": "Brother Tes Ting", "status": "invited"}"#.data(using: .utf8)!
+        let speaker = try JSONDecoder().decode(Speaker.self, from: json)
+        #expect(speaker.statusSource == nil)
+        #expect(speaker.statusSetBy == nil)
+        #expect(speaker.invitationId == nil)
+    }
+
     @Test("Optional fields stay optional — a minimal doc still decodes")
     func minimal() throws {
         let json = #"{"name": "Sister Davis"}"#.data(using: .utf8)!
@@ -155,6 +186,55 @@ struct SpeakerCanAddMoreTests {
     func degenerateBounds() {
         #expect(Speaker.canAddMore(assignedCount: 2, floor: 2, ceiling: 2) == false)
         #expect(Speaker.canAddMore(assignedCount: 0, floor: 4, ceiling: 4) == false)
+    }
+}
+
+@Suite("Speaker.hasConfirmed — when the schedule card locks the Sunday-Type menu")
+struct SpeakerHasConfirmedTests {
+
+    private func item(id: String, status: String?) -> CollectionItem<Speaker> {
+        CollectionItem(id: id, data: Speaker(name: "X", status: status))
+    }
+
+    @Test("Empty roster reads as no-confirmed — menu stays unlocked")
+    func empty() {
+        #expect(Speaker.hasConfirmed([]) == false)
+    }
+
+    @Test("All-planned / invited roster keeps the menu unlocked")
+    func plannedAndInvited() {
+        let items = [
+            item(id: "a", status: "planned"),
+            item(id: "b", status: "invited"),
+        ]
+        #expect(Speaker.hasConfirmed(items) == false)
+    }
+
+    @Test("A single confirmed speaker locks the menu")
+    func oneConfirmed() {
+        let items = [
+            item(id: "a", status: "planned"),
+            item(id: "b", status: "confirmed"),
+        ]
+        #expect(Speaker.hasConfirmed(items))
+    }
+
+    @Test("Status field is matched as the literal lowercase 'confirmed' the web writes")
+    func caseSensitive() {
+        // The web writes lowercase "confirmed". Stay strict so an unknown
+        // future status (e.g. "Confirmed") doesn't accidentally lock the
+        // menu — the bishop should keep agency on truly unknown states.
+        #expect(Speaker.hasConfirmed([item(id: "a", status: "Confirmed")]) == false)
+    }
+
+    @Test("Nil-status speakers don't lock — partial drafts and legacy docs stay editable")
+    func nilStatus() {
+        #expect(Speaker.hasConfirmed([item(id: "a", status: nil)]) == false)
+    }
+
+    @Test("Declined speakers don't lock — the bishop must move them on first")
+    func declined() {
+        #expect(Speaker.hasConfirmed([item(id: "a", status: "declined")]) == false)
     }
 }
 

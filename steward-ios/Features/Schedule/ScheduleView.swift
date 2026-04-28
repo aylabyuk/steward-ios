@@ -51,7 +51,8 @@ struct ScheduleView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 ScheduleTopBar(
                     wardTitle: Ward.displayTitle(ward: ward.data, wardId: wardId),
-                    auth: auth
+                    auth: auth,
+                    onOpenTwilioDebug: openTwilioDebug
                 )
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -59,9 +60,34 @@ struct ScheduleView: View {
                 AssignSlotFormView(context: context, path: $path)
             }
             .navigationDestination(for: InvitationDraft.self) { draft in
-                InvitationPreviewView(draft: draft, path: $path)
+                InvitationPreviewView(draft: draft, auth: auth, path: $path)
             }
+            .navigationDestination(for: ChatPresentation.self) { presentation in
+                ConversationView(
+                    wardId: wardId,
+                    speakerId: presentation.speakerId,
+                    kind: presentation.kind,
+                    speaker: presentation.speaker,
+                    auth: auth
+                )
+            }
+            #if DEBUG
+            .navigationDestination(for: TwilioDebugRoute.self) { _ in
+                TwilioPlumbingDebugView(wardId: wardId)
+            }
+            #endif
         }
+    }
+
+    /// Routes the avatar menu's debug entry through the same NavigationStack
+    /// as the schedule's other destinations. `nil` in non-DEBUG builds so
+    /// the menu item is hidden entirely.
+    private var openTwilioDebug: (() -> Void)? {
+        #if DEBUG
+        { path.append(TwilioDebugRoute()) }
+        #else
+        nil
+        #endif
     }
 
     private func slotContext(date: String, kind: SlotKind) -> SlotContext {
@@ -91,18 +117,17 @@ struct ScheduleView: View {
 
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     ForEach(dates, id: \.self) { date in
-                        Section {
-                            MeetingCardBody(
-                                date: date,
-                                meeting: byDate[date],
-                                wardId: wardId,
-                                onAssign: { kind in
-                                    path.append(slotContext(date: date, kind: kind))
-                                }
-                            )
-                        } header: {
-                            MeetingCardHeader(date: date, meeting: byDate[date], wardId: wardId)
-                        }
+                        MeetingCardSection(
+                            date: date,
+                            meeting: byDate[date],
+                            wardId: wardId,
+                            onAssign: { kind in
+                                path.append(slotContext(date: date, kind: kind))
+                            },
+                            onOpenChat: { presentation in
+                                path.append(presentation)
+                            }
+                        )
                     }
                     horizonFooter
                 }
@@ -165,4 +190,10 @@ struct ScheduleView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+#if DEBUG
+/// Sentinel value type for the NavigationStack route to the Twilio
+/// plumbing debug screen. Hashable + isolated to DEBUG builds.
+struct TwilioDebugRoute: Hashable {}
+#endif
 #endif

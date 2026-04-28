@@ -11,12 +11,6 @@ struct LoginView: View {
     /// verify the returned identity token's `nonce` claim.
     @State private var currentAppleNonce: String?
 
-    // DEBUG / emulator-only state for the dev-iteration shortcut.
-    #if DEBUG
-    @State private var debugEmail: String = ""
-    @State private var debugPassword: String = ""
-    #endif
-
     var body: some View {
         ZStack {
             Color.parchment2.ignoresSafeArea()
@@ -128,43 +122,6 @@ struct LoginView: View {
                     .buttonStyle(.glass)
                     .tint(Color.brass)
                     .disabled(isSubmitting)
-
-                // Email + password sign-in for arbitrary ward members.
-                // The Auth emulator creates the user on first sign-in
-                // (any password is accepted), so as long as a `members`
-                // doc exists for this email under the ward, the access
-                // gate resolves and the schedule loads.
-                VStack(spacing: Spacing.s2) {
-                    TextField("you@example.com", text: $debugEmail)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding(Spacing.s3)
-                        .background(Color.parchment, in: .rect(cornerRadius: Radius.default))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Radius.default)
-                                .stroke(Color.border, lineWidth: 0.5)
-                        )
-
-                    SecureField("password (any)", text: $debugPassword)
-                        .textContentType(.password)
-                        .padding(Spacing.s3)
-                        .background(Color.parchment, in: .rect(cornerRadius: Radius.default))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Radius.default)
-                                .stroke(Color.border, lineWidth: 0.5)
-                        )
-
-                    Button("Sign in with email", action: signInWithDebugEmail)
-                        .buttonStyle(.glass)
-                        .tint(Color.brass)
-                        .disabled(
-                            isSubmitting
-                            || debugEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || debugPassword.isEmpty
-                        )
-                }
             }
             .padding(.top, Spacing.s2)
         }
@@ -185,20 +142,6 @@ struct LoginView: View {
             isSubmitting = false
         }
     }
-
-    #if DEBUG
-    private func signInWithDebugEmail() {
-        let email = debugEmail.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard email.isEmpty == false, debugPassword.isEmpty == false else { return }
-        isSubmitting = true
-        Task {
-            // Sign-in-or-create — the bishop's email may already have
-            // a `members` doc in their ward but no Auth user yet.
-            await auth.debugSignInOrCreate(email: email, password: debugPassword)
-            isSubmitting = false
-        }
-    }
-    #endif
 
     private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
         switch result {

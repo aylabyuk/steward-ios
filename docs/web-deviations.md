@@ -33,6 +33,33 @@ items or needs forms.
 **iOS code**: `steward-ios/Features/Schedule/MeetingRow.swift` —
 `MeetingCardHeader.overflowMenu`.
 
+### Sunday-type lock — disabled rows + footer-button rationale, not a banner
+
+**iOS**: When the meeting has at least one `confirmed` speaker, the
+Sunday-Type radio group disables every option except the active one
+and appends a final disabled menu item reading "Locked — remove
+confirmed speakers to change." with the warning-triangle SF Symbol.
+`commitType` also early-returns on locked taps as belt-and-braces.
+
+**PWA**: Same lock rule, but the disabled options sit above a styled
+banner (border-top, mono-uppercase, bordeaux warning icon) inside the
+mobile bottom sheet (`SundayMenuOptions.tsx:58-77`).
+
+**Why**: Native iOS `Menu` doesn't render Section footers, so the web
+banner has no direct counterpart. A disabled `Button` with a warning
+icon is the closest in-Menu rationale row — same role, just compact
+enough for a popup. The Menu primitive overall is a stronger fit than
+a custom bottom sheet for ≤8 grouped options (see the existing
+"native iOS Menu, not bottom sheet" deviation above).
+
+**iOS code**: `steward-ios/Features/Schedule/MeetingRow.swift` —
+`MeetingCardHeader.overflowMenu` + `commitType`. The
+`hasConfirmedSpeaker` flag flows in from
+`MeetingCardSection`, which owns the per-card
+`CollectionSubscription<Speaker>` and computes the predicate via
+`Speaker.hasConfirmed(_:)` in
+`LocalPackages/StewardCore/Sources/StewardCore/Speaker.swift`.
+
 ### Stake/General Conference — no OP/CP rows
 
 **iOS**: Stake and General Conference cards collapse to just the
@@ -276,3 +303,55 @@ of its own.
 `LocalPackages/StewardCore/Sources/StewardCore/Invitations/LetterTemplate.swift`,
 rendered in
 `steward-ios/Features/Invitations/InvitationPreviewView.swift`.
+
+### "Mark as Invited" calls `sendSpeakerInvitation` — web's same label is out-of-band
+
+**iOS**: Tapping "Mark as Invited" on the invitation preview screen
+calls `FunctionsClient.sendSpeakerInvitation(...)` with `channels: []`,
+which mints a real `speakerInvitations/{id}` doc + Twilio Conversation +
+bishopric participant snapshot, then flips `speaker.status` to invited
+and stamps `invitationId`. No email/SMS is dispatched (channels empty).
+
+**PWA**: The same label (`markInvited`) is a direct `updateSpeaker({
+status: "invited" })` write — no callable, no Twilio conversation. It's
+the out-of-band path for when the bishop already delivered the letter
+by print/email/in-person. The web's "Send" / "Send SMS" buttons are the
+ones that call `sendSpeakerInvitation`.
+
+**Why**: iOS needed a way to mint invitations without first wiring a
+full multi-button send UI (and the SendGrid/Twilio dispatch confirmation
+flow). Hijacking "Mark as Invited" gives iOS-created assignments a real
+Twilio conversation immediately — without it, the chat sheet would only
+work for invitations originally sent from the web. Promote when iOS
+gains real "Send via Email" / "Send via SMS" buttons.
+
+**iOS code**:
+`steward-ios/Features/Invitations/InvitationPreviewView.swift` —
+`commitMarkInvited(rendered:)`. Callable wrapper at
+`steward-ios/Core/Firebase/FunctionsClient.swift`.
+
+### Chat is a navigation push, not a bottom drawer
+
+**iOS**: Tapping a speaker / prayer name on the schedule pushes
+`ConversationView` onto the existing `NavigationStack(path:)` —
+standard iOS chevron-back, slide-in transition, system nav bar
+with the speaker's name as inline title.
+
+**PWA**: A `vaul`-driven drawer that slides up from the bottom on
+mobile and from the right edge on desktop. Drag-to-dismiss; the
+schedule peeks behind the partial-height drawer.
+
+**Why**: Every native iOS messaging app (Messages, WhatsApp,
+Slack) treats a conversation as a destination, not a transient
+sheet. The keyboard handles much better in a navigation push than
+on a sheet, the schedule-context-behind-it benefit didn't pay off
+on phone-sized screens, and pushing matches the rest of the
+codebase's `NavigationStack(path:)`-only convention (same as
+`AssignSlotFormView` and `InvitationPreviewView`). System back
+button replaces the PWA's explicit "CLOSE" text button — also no
+"..." overflow icon yet (no actions wired).
+
+**iOS code**:
+`steward-ios/Features/Conversations/ConversationView.swift`,
+pushed via `.navigationDestination(for: ChatPresentation.self)`
+in `steward-ios/Features/Schedule/ScheduleView.swift`.

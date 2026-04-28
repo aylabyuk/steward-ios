@@ -7,7 +7,7 @@ import Foundation
 /// All fields are optional except `name` so a partial / draft doc still
 /// decodes — mirrors the web's lenient schema (`name.min(1)`, others
 /// optional or with `.catch` defaults).
-public struct Speaker: Codable, Sendable, Equatable {
+public struct Speaker: Codable, Sendable, Hashable {
     public let name: String
     public let email: String?
     public let phone: String?
@@ -20,6 +20,20 @@ public struct Speaker: Codable, Sendable, Equatable {
     /// 0-based slot position on the program. `nil` when the doc is a
     /// draft that hasn't been ordered yet — those sort to the end.
     public let order: Int?
+    /// Provenance of the most recent status write. Stamped by every
+    /// status mutation (manual via pills, speaker-response via Apply).
+    /// Free-form so a future source value doesn't crash the parse.
+    /// Known values: `"manual"`, `"speaker-response"`.
+    public let statusSource: String?
+    /// Twilio-style identity (`uid:{firebaseUid}`) of whoever last
+    /// stamped status. The chat-banner pill confirm dialog uses this
+    /// to surface "Override with care — X set this earlier" copy.
+    public let statusSetBy: String?
+    /// `wards/{wardId}/speakerInvitations/{invitationId}` document id
+    /// linking this row to its invitation snapshot. Populated by the
+    /// post-callable status flip after `sendSpeakerInvitation` returns.
+    /// Absent for planned speakers and pre-callable rollout docs.
+    public let invitationId: String?
 
     public init(
         name: String,
@@ -28,7 +42,10 @@ public struct Speaker: Codable, Sendable, Equatable {
         topic: String? = nil,
         status: String? = nil,
         role: String? = nil,
-        order: Int? = nil
+        order: Int? = nil,
+        statusSource: String? = nil,
+        statusSetBy: String? = nil,
+        invitationId: String? = nil
     ) {
         self.name = name
         self.email = email
@@ -37,6 +54,9 @@ public struct Speaker: Codable, Sendable, Equatable {
         self.status = status
         self.role = role
         self.order = order
+        self.statusSource = statusSource
+        self.statusSetBy = statusSetBy
+        self.invitationId = invitationId
     }
 
     /// What the schedule row shows beneath the speaker's name in the
@@ -85,6 +105,17 @@ public struct Speaker: Codable, Sendable, Equatable {
         ceiling: Int
     ) -> Bool {
         assignedCount >= floor && assignedCount < ceiling
+    }
+
+    /// Whether the roster contains at least one speaker the bishopric
+    /// has already invited and received a confirmation for. Drives the
+    /// Sunday-Type menu lock — once anyone is confirmed, switching the
+    /// meeting type would silently strand their commitment, so the
+    /// bishop has to remove the confirmed speaker first. Mirrors the
+    /// web's `hasConfirmedSpeaker` predicate in
+    /// `src/features/schedule/SundayCard/SundayCard.tsx`.
+    public static func hasConfirmed(_ items: [CollectionItem<Speaker>]) -> Bool {
+        items.contains { $0.data.status == "confirmed" }
     }
 
     /// The Firestore payload for a new (or updated) speaker doc, ready

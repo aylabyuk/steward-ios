@@ -9,6 +9,10 @@ import StewardCore
 struct ScheduleTopBar: View {
     let wardTitle: String
     let auth: AuthClient
+    /// DEBUG-only callback wired up by `ScheduleView` so the avatar
+    /// menu can push the Twilio plumbing debug screen onto the same
+    /// nav stack. `nil` means the menu item is hidden.
+    var onOpenTwilioDebug: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Spacing.s3) {
@@ -32,6 +36,12 @@ struct ScheduleTopBar: View {
                 Text(email)
             }
             Divider()
+            #if DEBUG
+            if let onOpenTwilioDebug {
+                Button("Twilio plumbing (debug)", systemImage: "ladybug", action: onOpenTwilioDebug)
+                Divider()
+            }
+            #endif
             Button("Sign out", role: .destructive, action: auth.signOut)
         } label: {
             HStack(spacing: 4) {

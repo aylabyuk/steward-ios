@@ -3,6 +3,66 @@ import StewardCore
 
 #if canImport(FirebaseFirestore)
 
+// MARK: - Section wrapper (owns per-card speaker subscription)
+
+/// One Section in the schedule's pinned-headers stack. Owns the per-card
+/// `CollectionSubscription<Speaker>` and forwards `speakers` to both the
+/// header (for the Sunday-Type lock) and the body (for the speaker
+/// rows). Returning a `Section` directly from this view's body keeps it
+/// participating in `LazyVStack(pinnedViews: [.sectionHeaders])` — the
+/// container's pinning logic walks through wrapping Views and finds the
+/// Section all the same.
+struct MeetingCardSection: View {
+    let date: String
+    let meeting: Meeting?
+    let wardId: String
+    var onAssign: (SlotKind) -> Void = { _ in }
+    var onOpenChat: ((ChatPresentation) -> Void)? = nil
+
+    @State private var speakers: CollectionSubscription<Speaker>
+
+    init(
+        date: String,
+        meeting: Meeting?,
+        wardId: String,
+        onAssign: @escaping (SlotKind) -> Void = { _ in },
+        onOpenChat: ((ChatPresentation) -> Void)? = nil
+    ) {
+        self.date = date
+        self.meeting = meeting
+        self.wardId = wardId
+        self.onAssign = onAssign
+        self.onOpenChat = onOpenChat
+        let path = "wards/\(wardId)/meetings/\(date)/speakers"
+        let source = FirestoreCollectionSource(path: path)
+        self._speakers = State(initialValue: CollectionSubscription<Speaker>(
+            source: source,
+            decoder: { try JSONDecoder().decode(Speaker.self, from: $0) },
+            path: path
+        ))
+    }
+
+    var body: some View {
+        Section {
+            MeetingCardBody(
+                date: date,
+                meeting: meeting,
+                wardId: wardId,
+                speakers: speakers,
+                onAssign: onAssign,
+                onOpenChat: onOpenChat
+            )
+        } header: {
+            MeetingCardHeader(
+                date: date,
+                meeting: meeting,
+                wardId: wardId,
+                hasConfirmedSpeaker: Speaker.hasConfirmed(speakers.items)
+            )
+        }
+    }
+}
+
 // MARK: - Section header (sticky)
 
 /// The pinned date strip at the top of each meeting card. Solid parchment
@@ -12,6 +72,10 @@ struct MeetingCardHeader: View {
     let date: String
     let meeting: Meeting?
     let wardId: String
+    /// Drives the Sunday-Type menu lock. When `true`, only the active
+    /// type row stays tappable and a "Locked — remove confirmed
+    /// speakers to change." footer appears beneath the radio group.
+    var hasConfirmedSpeaker: Bool = false
 
     /// Injected for previews / tests. Production callers leave the default.
     var today: Date = Date()
@@ -62,6 +126,7 @@ struct MeetingCardHeader: View {
             }
             Section("Sunday Type") {
                 ForEach(SundayTypeOption.all) { option in
+                    let isActive = option.raw == effectiveType
                     Button {
                         commitType(option.raw)
                     } label: {
@@ -70,12 +135,31 @@ struct MeetingCardHeader: View {
                         // and the others stay flush-left. Mirrors the web's
                         // bordeaux-dot active marker without needing a
                         // custom row.
-                        if option.raw == effectiveType {
+                        if isActive {
                             Label(option.label, systemImage: "checkmark")
                         } else {
                             Text(option.label)
                         }
                     }
+                    .disabled(hasConfirmedSpeaker && !isActive)
+                }
+                if hasConfirmedSpeaker {
+                    // iOS-side equivalent of the web's "LOCKED — REMOVE
+                    // CONFIRMED SPEAKERS TO CHANGE." footer. Native
+                    // `Menu` doesn't render Section footers, so a
+                    // disabled Button with the warning icon serves as
+                    // the rationale row — same role as the web banner,
+                    // just compact enough for a popup menu. See
+                    // docs/web-deviations.md.
+                    Button {
+                        // Inert; the disabled state is the affordance.
+                    } label: {
+                        Label(
+                            "Locked — remove confirmed speakers to change.",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                    }
+                    .disabled(true)
                 }
             }
         } label: {
@@ -104,6 +188,10 @@ struct MeetingCardHeader: View {
 
     private func commitType(_ type: String) {
         guard type != effectiveType else { return }
+        // Belt-and-braces against a stale tap landing while a confirmed
+        // speaker exists — the Menu disables the row, but a listener
+        // refresh between render and tap shouldn't slip a write through.
+        guard hasConfirmedSpeaker == false else { return }
         Task {
             do {
                 try await MeetingsClient.setMeetingType(wardId: wardId, date: date, type: type)
@@ -120,17 +208,24 @@ struct MeetingCardHeader: View {
 // MARK: - Section body
 
 /// The scrolling body of a meeting card — testimony note (fast Sundays) or
-/// numbered speaker slots, plus OP/CP prayer rows. Owns the per-meeting
-/// `CollectionSubscription<Speaker>` so each card lazily attaches its own
-/// Firestore listener (matches the web's `useSpeakers(date)` pattern).
+/// numbered speaker slots, plus OP/CP prayer rows. Receives the per-card
+/// `CollectionSubscription<Speaker>` from `MeetingCardSection`, which
+/// owns the listener so the header can read `hasConfirmedSpeaker` from
+/// the same source. @Observable propagation through this `let` keeps
+/// the body in sync as Firestore re-emits.
 struct MeetingCardBody: View {
     let date: String
     let meeting: Meeting?
     let wardId: String
+    let speakers: CollectionSubscription<Speaker>
     /// Tapped on an empty slot's `Assign…` pill. The parent (ScheduleView)
     /// pushes onto the NavigationPath; this view stays Firebase-blind to
     /// the navigation mechanism.
     var onAssign: (SlotKind) -> Void = { _ in }
+    /// Tapped on a filled slot's name. The parent (ScheduleView)
+    /// presents `ConversationSheet` for the chat. nil disables the
+    /// tap target — used by previews / unit-test snapshots.
+    var onOpenChat: ((ChatPresentation) -> Void)? = nil
 
     /// Floor for visible speaker rows — the typical ward roster.
     /// Below this, empty rows render as `Assign Speaker` placeholders
@@ -141,27 +236,6 @@ struct MeetingCardBody: View {
     /// reaches this, the `Add another speaker` affordance disappears
     /// and the card stops growing.
     private static let maxSpeakerSlots = 4
-
-    @State private var speakers: CollectionSubscription<Speaker>
-
-    init(
-        date: String,
-        meeting: Meeting?,
-        wardId: String,
-        onAssign: @escaping (SlotKind) -> Void = { _ in }
-    ) {
-        self.date = date
-        self.meeting = meeting
-        self.wardId = wardId
-        self.onAssign = onAssign
-        let path = "wards/\(wardId)/meetings/\(date)/speakers"
-        let source = FirestoreCollectionSource(path: path)
-        self._speakers = State(initialValue: CollectionSubscription<Speaker>(
-            source: source,
-            decoder: { try JSONDecoder().decode(Speaker.self, from: $0) },
-            path: path
-        ))
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -220,6 +294,11 @@ struct MeetingCardBody: View {
     ) -> some View {
         let assignee = assignment?.person?.name
         let assigned = assignee?.isEmpty == false
+        let chatHandler: (() -> Void)? = {
+            guard assigned, let assignment, let onOpenChat else { return nil }
+            guard let presentation = ChatPresentation.forPrayer(kind: kind, assignment: assignment) else { return nil }
+            return { onOpenChat(presentation) }
+        }()
         return SlotRow(
             label: label,
             assignee: assignee,
@@ -227,10 +306,21 @@ struct MeetingCardBody: View {
             status: assignment?.status,
             showStatus: assigned,
             assignKind: assigned ? nil : kind,
-            onAssign: { onAssign(kind) }
+            onAssign: { onAssign(kind) },
+            onChat: chatHandler
         )
     }
 
+
+    private func speakerChatHandler(for slot: SpeakerSlot) -> (() -> Void)? {
+        guard let speakerItem = slot.speaker, let onOpenChat else { return nil }
+        let presentation = ChatPresentation(
+            kind: .speaker,
+            speakerId: speakerItem.id,
+            speaker: speakerItem.data
+        )
+        return { onOpenChat(presentation) }
+    }
 
     @ViewBuilder
     private var speakerRows: some View {
@@ -244,7 +334,8 @@ struct MeetingCardBody: View {
                 status: slot.speaker?.data.status,
                 showStatus: slot.speaker != nil,
                 assignKind: slot.speaker == nil ? .speaker : nil,
-                onAssign: { onAssign(.speaker) }
+                onAssign: { onAssign(.speaker) },
+                onChat: speakerChatHandler(for: slot)
             )
             slotDivider
         }
@@ -328,9 +419,9 @@ struct MeetingCardBody: View {
 /// ("01", "OP", "CP") on the left, the assignee's name (with optional
 /// italic-serif topic / role label underneath, mirroring `SpeakerRow.tsx`)
 /// or an italic "Not assigned" placeholder, and a compact colored
-/// status dot at the trailing edge. The dot replaces the older chat
-/// affordance — chat isn't wired yet, so a dedicated indicator reads
-/// more honestly than a no-op icon button.
+/// status dot at the trailing edge. Filled rows wrap the
+/// assignee+topic block in a tap target — tapping opens the
+/// `ConversationSheet` (Phase 2 chat sheet).
 private struct SlotRow: View {
     let label: String
     let assignee: String?
@@ -346,6 +437,9 @@ private struct SlotRow: View {
     /// snapshots.
     var assignKind: SlotKind? = nil
     var onAssign: () -> Void = {}
+    /// Tap target on the assignee name — opens the chat sheet. nil
+    /// disables the tap (used for previews / unit-test snapshots).
+    var onChat: (() -> Void)? = nil
 
     var body: some View {
         // Center-aligned so the slot label, assignee block, and status
@@ -360,7 +454,7 @@ private struct SlotRow: View {
                 .frame(width: 36, alignment: .leading)
 
             if let assignee, assignee.isEmpty == false {
-                VStack(alignment: .leading, spacing: 2) {
+                let block = VStack(alignment: .leading, spacing: 2) {
                     Text(assignee)
                         .font(.bodyEmphasis)
                         .foregroundStyle(Color.walnut)
@@ -375,6 +469,14 @@ private struct SlotRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                if let onChat {
+                    Button(action: onChat) { block }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open conversation with \(assignee)")
+                } else {
+                    block
+                }
             } else if let assignKind {
                 AssignSlotButton(kind: assignKind, action: onAssign)
                     .frame(maxWidth: .infinity, alignment: .leading)

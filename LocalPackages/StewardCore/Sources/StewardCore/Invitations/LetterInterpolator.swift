@@ -85,8 +85,10 @@ public enum LetterInterpolator {
     /// "Sunday, May 17, 2026" — matches the web's
     /// `formatAssignedDate`. Civil-date parsing pinned to UTC so a
     /// Firestore meeting id like `"2026-05-17"` reads as May 17
-    /// regardless of the device timezone.
-    private static func fullSundayDate(_ isoDate: String, locale: Locale) -> String {
+    /// regardless of the device timezone. Public so the
+    /// `sendSpeakerInvitation` callable wrapper can stamp the same
+    /// `assignedDate` string the letter shows.
+    public static func fullSundayDate(_ isoDate: String, locale: Locale = .current) -> String {
         let strategy = Date.ISO8601FormatStyle(timeZone: .gmt).year().month().day()
         guard let date = try? Date(isoDate, strategy: strategy) else {
             return isoDate
@@ -101,8 +103,10 @@ public enum LetterInterpolator {
         return date.formatted(style)
     }
 
-    /// "April 21, 2026" — matches the web's `formatToday`.
-    private static func longDate(_ date: Date, locale: Locale) -> String {
+    /// "April 21, 2026" — matches the web's `formatToday`. Public so
+    /// the `sendSpeakerInvitation` callable wrapper can stamp the same
+    /// `sentOn` string the letter shows.
+    public static func longDate(_ date: Date, locale: Locale = .current) -> String {
         var style = Date.FormatStyle()
             .month(.wide)
             .day()

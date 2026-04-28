@@ -49,38 +49,6 @@ final class AuthClient {
         }
     }
 
-    #if DEBUG
-    /// DEBUG-only helper for the Auth emulator. Tries to sign in; if
-    /// the user doesn't exist yet, creates them with the supplied
-    /// password. Compiled out of release builds so the
-    /// `Auth.auth().createUser(...)` symbol is never reachable in the
-    /// shipped binary, even via runtime hooking — defense in depth
-    /// against the production project being targeted by an attacker
-    /// who's instrumented the app.
-    func debugSignInOrCreate(email: String, password: String) async {
-        do {
-            _ = try await Auth.auth().signIn(withEmail: email, password: password)
-            self.lastError = nil
-        } catch {
-            // 17011 = ERROR_USER_NOT_FOUND. Fall through to createUser
-            // and try again. Any other error surfaces as-is.
-            let nsError = error as NSError
-            let isUserNotFound = nsError.domain == AuthErrorDomain
-                && nsError.code == AuthErrorCode.userNotFound.rawValue
-            guard isUserNotFound else {
-                self.lastError = error
-                return
-            }
-            do {
-                _ = try await Auth.auth().createUser(withEmail: email, password: password)
-                self.lastError = nil
-            } catch {
-                self.lastError = error
-            }
-        }
-    }
-    #endif
-
     /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
     /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is set
     /// the SDK redirects to the Firebase Auth emulator's fake account

@@ -14,6 +14,7 @@
 		BEE63CC82FA0684E002CF39C /* gRPC-C++ in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BD32FA10003002CF39C /* gRPC-C++ */; };
 		BEE63D032FA20003002CF39C /* StewardCore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63D012FA20001002CF39C /* StewardCore */; };
 		BEE63D042FA20004002CF39C /* StewardCore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63D022FA20002002CF39C /* StewardCore */; };
+		BEE6EC8F2FA16B100093B921 /* TwilioConversationsClient in Frameworks */ = {isa = PBXBuildFile; productRef = BEE6EC8E2FA16B100093B921 /* TwilioConversationsClient */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 			files = (
 				BEE63CC82FA0684E002CF39C /* gRPC-C++ in Frameworks */,
 				BEE63CC72FA0684E002CF39C /* abseil in Frameworks */,
+				BEE6EC8F2FA16B100093B921 /* TwilioConversationsClient in Frameworks */,
 				BEE63BC62FA05FE5002CF39C /* FirebaseFunctions in Frameworks */,
 				BEE63BC22FA05FCE002CF39C /* FirebaseAuth in Frameworks */,
 				BEE63BC42FA05FD4002CF39C /* FirebaseFirestore in Frameworks */,
@@ -111,6 +113,7 @@
 				BEE63BD22FA10002002CF39C /* abseil */,
 				BEE63BD32FA10003002CF39C /* gRPC-C++ */,
 				BEE63D012FA20001002CF39C /* StewardCore */,
+				BEE6EC8E2FA16B100093B921 /* TwilioConversationsClient */,
 			);
 			productName = "steward-ios";
 			productReference = BEE63B722FA04C99002CF39C /* steward-ios.app */;
@@ -172,6 +175,7 @@
 				BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */,
 				BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */,
 				BEE63D002FA20000002CF39C /* XCLocalSwiftPackageReference "LocalPackages/StewardCore" */,
+				BEE6EC8D2FA16B0A0093B921 /* XCRemoteSwiftPackageReference "conversations-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BEE63B732FA04C99002CF39C /* Products */;
@@ -502,6 +506,14 @@
 				version = 1.69.1;
 			};
 		};
+		BEE6EC8D2FA16B0A0093B921 /* XCRemoteSwiftPackageReference "conversations-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/twilio/conversations-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -537,6 +549,11 @@
 		BEE63D022FA20002002CF39C /* StewardCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = StewardCore;
+		};
+		BEE6EC8E2FA16B100093B921 /* TwilioConversationsClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE6EC8D2FA16B0A0093B921 /* XCRemoteSwiftPackageReference "conversations-ios" */;
+			productName = TwilioConversationsClient;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

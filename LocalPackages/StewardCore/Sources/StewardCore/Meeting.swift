@@ -48,15 +48,22 @@ public struct Meeting: Codable, Sendable, Equatable {
         /// lenient Zod ignores the extra field. Stored raw to tolerate
         /// future server-side states; UI maps via `InvitationStatus(rawString:)`.
         public let status: String?
+        /// `wards/{wardId}/speakerInvitations/{invitationId}` doc id —
+        /// stamped after `sendSpeakerInvitation` returns successfully so
+        /// the chat sheet can fetch the invitation snapshot. Absent for
+        /// planned prayers and pre-callable rollout docs.
+        public let invitationId: String?
 
         public init(
             person: Person? = nil,
             confirmed: Bool? = nil,
-            status: String? = nil
+            status: String? = nil,
+            invitationId: String? = nil
         ) {
             self.person = person
             self.confirmed = confirmed
             self.status = status
+            self.invitationId = invitationId
         }
     }
 
