@@ -6,14 +6,39 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BEE63BC22FA05FCE002CF39C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC12FA05FCE002CF39C /* FirebaseAuth */; };
+		BEE63BC42FA05FD4002CF39C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC32FA05FD4002CF39C /* FirebaseFirestore */; };
+		BEE63BC62FA05FE5002CF39C /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC52FA05FE5002CF39C /* FirebaseFunctions */; };
+		BEE63BC82FA05FF9002CF39C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC72FA05FF9002CF39C /* FirebaseAuth */; };
+		BEE63BCA2FA0600B002CF39C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BC92FA0600B002CF39C /* FirebaseFirestore */; };
+		BEE63BCC2FA06012002CF39C /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BEE63BCB2FA06012002CF39C /* FirebaseFunctions */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BEE63BB72FA05E11002CF39C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BEE63B6A2FA04C99002CF39C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BEE63B712FA04C99002CF39C;
+			remoteInfo = "steward-ios";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		BEE63B722FA04C99002CF39C /* steward-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "steward-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BEE63BB32FA05E11002CF39C /* StewardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StewardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BEE63B742FA04C99002CF39C /* steward-ios */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "steward-ios";
+			sourceTree = "<group>";
+		};
+		BEE63BB42FA05E11002CF39C /* StewardTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StewardTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +48,19 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BEE63BC62FA05FE5002CF39C /* FirebaseFunctions in Frameworks */,
+				BEE63BC22FA05FCE002CF39C /* FirebaseAuth in Frameworks */,
+				BEE63BC42FA05FD4002CF39C /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEE63BB02FA05E11002CF39C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BEE63BCC2FA06012002CF39C /* FirebaseFunctions in Frameworks */,
+				BEE63BC82FA05FF9002CF39C /* FirebaseAuth in Frameworks */,
+				BEE63BCA2FA0600B002CF39C /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +71,8 @@
 			isa = PBXGroup;
 			children = (
 				BEE63B742FA04C99002CF39C /* steward-ios */,
+				BEE63BB42FA05E11002CF39C /* StewardTests */,
+				BEE63BC02FA05FCE002CF39C /* Frameworks */,
 				BEE63B732FA04C99002CF39C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +81,16 @@
 			isa = PBXGroup;
 			children = (
 				BEE63B722FA04C99002CF39C /* steward-ios.app */,
+				BEE63BB32FA05E11002CF39C /* StewardTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		BEE63BC02FA05FCE002CF39C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,10 +113,43 @@
 			);
 			name = "steward-ios";
 			packageProductDependencies = (
+				BEE63BC12FA05FCE002CF39C /* FirebaseAuth */,
+				BEE63BC32FA05FD4002CF39C /* FirebaseFirestore */,
+				BEE63BC52FA05FE5002CF39C /* FirebaseFunctions */,
+				BEE63BD22FA10002002CF39C /* abseil */,
+				BEE63BD32FA10003002CF39C /* gRPC-C++ */,
 			);
 			productName = "steward-ios";
 			productReference = BEE63B722FA04C99002CF39C /* steward-ios.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BEE63BB22FA05E11002CF39C /* StewardTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BEE63BB92FA05E11002CF39C /* Build configuration list for PBXNativeTarget "StewardTests" */;
+			buildPhases = (
+				BEE63BAF2FA05E11002CF39C /* Sources */,
+				BEE63BB02FA05E11002CF39C /* Frameworks */,
+				BEE63BB12FA05E11002CF39C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BEE63BB82FA05E11002CF39C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BEE63BB42FA05E11002CF39C /* StewardTests */,
+			);
+			name = StewardTests;
+			packageProductDependencies = (
+				BEE63BC72FA05FF9002CF39C /* FirebaseAuth */,
+				BEE63BC92FA0600B002CF39C /* FirebaseFirestore */,
+				BEE63BCB2FA06012002CF39C /* FirebaseFunctions */,
+				BEE63BD42FA10004002CF39C /* abseil */,
+				BEE63BD52FA10005002CF39C /* gRPC-C++ */,
+			);
+			productName = StewardTests;
+			productReference = BEE63BB32FA05E11002CF39C /* StewardTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -83,6 +164,10 @@
 					BEE63B712FA04C99002CF39C = {
 						CreatedOnToolsVersion = 26.4.1;
 					};
+					BEE63BB22FA05E11002CF39C = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = BEE63B712FA04C99002CF39C;
+					};
 				};
 			};
 			buildConfigurationList = BEE63B6D2FA04C99002CF39C /* Build configuration list for PBXProject "steward-ios" */;
@@ -94,18 +179,31 @@
 			);
 			mainGroup = BEE63B692FA04C99002CF39C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */,
+				BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BEE63B732FA04C99002CF39C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				BEE63B712FA04C99002CF39C /* steward-ios */,
+				BEE63BB22FA05E11002CF39C /* StewardTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		BEE63B702FA04C99002CF39C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEE63BB12FA05E11002CF39C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +220,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BEE63BAF2FA05E11002CF39C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BEE63BB82FA05E11002CF39C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BEE63B712FA04C99002CF39C /* steward-ios */;
+			targetProxy = BEE63BB72FA05E11002CF39C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BEE63B7B2FA04C9A002CF39C /* Debug */ = {
@@ -302,6 +415,48 @@
 			};
 			name = Release;
 		};
+		BEE63BBA2FA05E11002CF39C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 49AC3WCTNX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.thevincistudios.StewardTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/steward-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/steward-ios";
+			};
+			name = Debug;
+		};
+		BEE63BBB2FA05E11002CF39C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 49AC3WCTNX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ca.thevincistudios.StewardTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/steward-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/steward-ios";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -323,7 +478,96 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BEE63BB92FA05E11002CF39C /* Build configuration list for PBXNativeTarget "StewardTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BEE63BBA2FA05E11002CF39C /* Debug */,
+				BEE63BBB2FA05E11002CF39C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 12.12.1;
+			};
+		};
+		BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/abseil-cpp-binary.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2024072200.0;
+			};
+		};
+		BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/grpc-binary.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.69.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BEE63BC12FA05FCE002CF39C /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		BEE63BC32FA05FD4002CF39C /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		BEE63BC52FA05FE5002CF39C /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+		BEE63BC72FA05FF9002CF39C /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		BEE63BC92FA0600B002CF39C /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		BEE63BCB2FA06012002CF39C /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+		BEE63BD22FA10002002CF39C /* abseil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */;
+			productName = abseil;
+		};
+		BEE63BD32FA10003002CF39C /* gRPC-C++ */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */;
+			productName = "gRPC-C++";
+		};
+		BEE63BD42FA10004002CF39C /* abseil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */;
+			productName = abseil;
+		};
+		BEE63BD52FA10005002CF39C /* gRPC-C++ */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */;
+			productName = "gRPC-C++";
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BEE63B6A2FA04C99002CF39C /* Project object */;
 }

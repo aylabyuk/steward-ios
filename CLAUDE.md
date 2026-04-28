@@ -63,6 +63,19 @@ For tethered device, run `./scripts/print-emulator-host.sh` from the repo root �
 
 **5. The Info.plist** is at the repo root (not under `steward-ios/`) deliberately — synced root groups would otherwise auto-include it as a copied resource and collide with the Info.plist processing step. `INFOPLIST_FILE = Info.plist` and `GENERATE_INFOPLIST_FILE = NO` in `project.pbxproj`. ATS allows local networking for emulator HTTP via `NSAllowsLocalNetworking = true`.
 
+## Known issue: Firebase SPM + Xcode 26 in test mode
+
+Firebase iOS SDK 12.x has a SwiftPM transitive-linking bug on Xcode 26.4.1 — `FirebaseFirestore_PackageProduct.framework` fails to link abseil symbols when built in test mode. Tracked upstream as [firebase/firebase-ios-sdk#15642](https://github.com/firebase/firebase-ios-sdk/issues/15642), open with no fix as of 2026-04-28.
+
+**Workaround in this repo:** `abseil-cpp-binary` and `grpc-binary` are added as direct package references (not just transitive through Firebase) and their `abseil` / `gRPC-C++` products are linked to both targets. This unblocks the **app target** — `xcodebuild build` succeeds, and the app runs on the simulator with full Firestore emulator integration.
+
+It does **not** unblock `xcodebuild test`. Test-mode rebuilds the app target with `ENABLE_TESTABILITY=YES`, which triggers the wrapper-framework path that the bug breaks. Even pure unit tests that don't import Firebase can't run, because the test scheme always rebuilds the app target.
+
+**Practical implications:**
+- Phase 0 demo (live emulator integration) → run the app from Xcode (⌘R). Works today.
+- Automated tests → blocked until upstream fix or a migration to CocoaPods (Firebase team's recommended workaround for SPM issues).
+- `StewardTests/EmulatorConnectivityTests.swift` is currently gated `#if false && canImport(FirebaseFirestore)` — flip back to `#if canImport(FirebaseFirestore)` when the upstream bug is fixed.
+
 ## Test-driven development
 
 User has explicitly opted into TDD for this project (see `feedback_use_swift_skills.md` memory and the `swift-testing-pro` skill). Cadence:
