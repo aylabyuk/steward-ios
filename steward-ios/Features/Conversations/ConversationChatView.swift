@@ -59,7 +59,6 @@ struct ConversationChatView: View {
                 onChangeStatus: handleStatusChange
             )
             Divider()
-            #if canImport(TwilioConversationsClient)
             if let observer {
                 ConversationThreadView(
                     messages: observer.messages,
@@ -87,10 +86,6 @@ struct ConversationChatView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            #else
-            sdkMissingState
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            #endif
             ConversationComposerView(
                 placeholder: composerPlaceholder,
                 isSending: isSending,
@@ -131,7 +126,6 @@ struct ConversationChatView: View {
 
     @MainActor
     private func ensureObserver() async {
-        #if canImport(TwilioConversationsClient)
         guard observer == nil else { return }
         guard let conversationSid = invitation.conversationSid else {
             loadError = "This invitation has no Twilio conversation. Re-prepare it from the schedule."
@@ -156,10 +150,6 @@ struct ConversationChatView: View {
         } catch {
             loadError = "Couldn't load the conversation — \(error.localizedDescription)"
         }
-        #else
-        // Stub path
-        _ = invitation.conversationSid
-        #endif
     }
 
     private func handleApply() {
@@ -219,7 +209,6 @@ struct ConversationChatView: View {
                     invitationId: invitationId,
                     status: next
                 )
-                #if canImport(TwilioConversationsClient)
                 if let conversation = observer?.conversation {
                     await InvitationStatusMirror.postStatusChangeMessage(
                         conversation: conversation,
@@ -227,7 +216,6 @@ struct ConversationChatView: View {
                         meetingDate: invitation.speakerRef.meetingDate
                     )
                 }
-                #endif
             } catch {
                 applyError = "Couldn't update status — \(error.localizedDescription)"
             }
@@ -235,7 +223,6 @@ struct ConversationChatView: View {
     }
 
     private func handleSend(_ body: String) async {
-        #if canImport(TwilioConversationsClient)
         guard let observer else { return }
         isSending = true
         defer { isSending = false }
@@ -244,7 +231,6 @@ struct ConversationChatView: View {
         } catch {
             applyError = "Couldn't send — \(error.localizedDescription)"
         }
-        #endif
     }
 
     private func errorState(message: String) -> some View {
@@ -259,16 +245,6 @@ struct ConversationChatView: View {
                 .padding(.horizontal, Spacing.s6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var sdkMissingState: some View {
-        VStack(spacing: Spacing.s2) {
-            Text("Conversation will appear here once the Twilio SDK is wired.")
-                .font(.serifAside)
-                .foregroundStyle(Color.walnut3)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.s6)
-        }
     }
 }
 

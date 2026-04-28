@@ -7,11 +7,11 @@ import FirebaseFirestore
 /// DEBUG-only acceptance screen for the Phase 1 Twilio plumbing
 /// (issueSpeakerSession + sendSpeakerInvitation + TwilioChatClient).
 ///
-/// Usage flow (matches the plan's Phase 1.e gate):
+/// Usage flow:
 ///   1. From the schedule, open the avatar menu and tap "Twilio plumbing
 ///      (debug)".
-///   2. Tap **Connect** → expect `status: ready` (or `partial` until the
-///      Twilio SDK is added) and the bishop's `uid:…` identity printed.
+///   2. Tap **Connect** → expect `status: ready` and the bishop's
+///      `uid:…` identity printed.
 ///   3. Paste a `conversationSid` from a web-minted invitation (the
 ///      Firebase emulator UI's `wards/{wardId}/speakerInvitations`
 ///      collection has them) and tap **Fetch** → message count + latest
@@ -148,7 +148,6 @@ struct TwilioPlumbingDebugView: View {
         switch twilio.status {
         case .idle:                       return "idle"
         case .connecting:                 return "connecting…"
-        case .partial:                    return "token minted (Twilio SDK not yet added)"
         case .ready:                      return "ready"
         case .error(let message):         return "error — \(message)"
         }
@@ -174,7 +173,6 @@ struct TwilioPlumbingDebugView: View {
         fetchError = nil
         fetchedSummary = nil
         defer { fetching = false }
-        #if canImport(TwilioConversationsClient)
         do {
             let conversation = try await twilio.conversation(withSid: conversationSid)
             let count = try await Self.messageCount(of: conversation)
@@ -187,12 +185,8 @@ struct TwilioPlumbingDebugView: View {
         } catch {
             fetchError = error.localizedDescription
         }
-        #else
-        fetchError = "Twilio Conversations iOS SDK not yet added — see plan Phase 1a."
-        #endif
     }
 
-    #if canImport(TwilioConversationsClient)
     private static func messageCount(of conversation: TCHConversation) async throws -> UInt {
         try await withCheckedThrowingContinuation { continuation in
             conversation.getMessagesCount { result, count in
@@ -222,10 +216,7 @@ struct TwilioPlumbingDebugView: View {
             }
         }
     }
-    #endif
 }
 
-#if canImport(TwilioConversationsClient)
 @preconcurrency import TwilioConversationsClient
-#endif
 #endif

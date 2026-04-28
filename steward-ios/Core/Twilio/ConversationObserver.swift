@@ -1,7 +1,5 @@
 import Foundation
 import StewardCore
-
-#if canImport(TwilioConversationsClient)
 @preconcurrency import TwilioConversationsClient
 
 /// Per-conversation observer that mirrors the web's `useConversation`
@@ -392,5 +390,3 @@ private nonisolated func makeError(_ message: String) -> Error {
         userInfo: [NSLocalizedDescriptionKey: message]
     )
 }
-
-#endif

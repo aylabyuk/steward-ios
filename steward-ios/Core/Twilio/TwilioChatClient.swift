@@ -1,9 +1,6 @@
 import Foundation
 import StewardCore
-
-#if canImport(TwilioConversationsClient)
 @preconcurrency import TwilioConversationsClient
-#endif
 
 /// Owns the Twilio Conversations client for the bishopric session. Mirrors
 /// the web's `TwilioChatProvider` at
@@ -13,23 +10,12 @@ import StewardCore
 /// Identity scheme matches the web exactly: the bishop is `uid:{firebaseUid}`.
 /// The `issueSpeakerSession` Cloud Function infers that from the bishop's
 /// Firebase auth token; iOS just sends `{ wardId }`.
-///
-/// File compiles without the Twilio SDK — the real SDK calls live behind
-/// `#if canImport(TwilioConversationsClient)`. Until the SDK is added via
-/// `File ▸ Add Package Dependencies…`, `connect()` exercises the token
-/// issuance path only (so the Cloud Function wiring can be verified
-/// end-to-end on its own) and surfaces a `.partial` status so the debug
-/// view shows "Token minted, SDK not yet wired".
 @MainActor
 @Observable
 final class TwilioChatClient {
     enum Status: Equatable, Sendable {
         case idle
         case connecting
-        /// Token issued but the Twilio SDK isn't linked yet — the
-        /// connection-management half of `connect()` is a no-op until
-        /// the SDK is added. Once the SDK is in, this path is unreachable.
-        case partial
         case ready
         case error(message: String)
     }
@@ -42,10 +28,8 @@ final class TwilioChatClient {
     /// re-issue with the same scope.
     private var connectOptions: (wardId: String, invitationId: String?)?
 
-    #if canImport(TwilioConversationsClient)
     private var client: TwilioConversationsClient?
     private var delegate: TwilioChatDelegate?
-    #endif
 
     init() {}
 
@@ -54,7 +38,7 @@ final class TwilioChatClient {
     /// `if (clientRef.current) return;` short-circuit).
     func connect(wardId: String, invitationId: String? = nil) async {
         switch status {
-        case .ready, .connecting, .partial:
+        case .ready, .connecting:
             return
         case .idle, .error:
             break
@@ -68,12 +52,8 @@ final class TwilioChatClient {
                 invitationId: invitationId
             )
             identity = session.identity
-            #if canImport(TwilioConversationsClient)
             try await bringClientUp(token: session.twilioToken)
             status = .ready
-            #else
-            status = .partial
-            #endif
         } catch {
             lastError = error.localizedDescription
             status = .error(message: error.localizedDescription)
@@ -84,18 +64,15 @@ final class TwilioChatClient {
     /// the next sign-in can reconnect from scratch. Mirrors
     /// `TwilioChatProvider.disconnect`.
     func disconnect() {
-        #if canImport(TwilioConversationsClient)
         client?.shutdown()
         client = nil
         delegate = nil
-        #endif
         identity = nil
         connectOptions = nil
         status = .idle
         lastError = nil
     }
 
-    #if canImport(TwilioConversationsClient)
     /// Fetch a conversation by SID. Used by the chat sheet once it knows
     /// which `speakerInvitations/{id}.conversationSid` it's rendering.
     func conversation(withSid sid: String) async throws -> TCHConversation {
@@ -213,7 +190,6 @@ final class TwilioChatClient {
             }
         }
     }
-    #endif
 }
 
 enum TwilioChatClientError: Error, LocalizedError {
@@ -232,7 +208,6 @@ enum TwilioChatClientError: Error, LocalizedError {
     }
 }
 
-#if canImport(TwilioConversationsClient)
 /// Erases the Twilio delegate's many callbacks down to a coarse Event
 /// stream the @Observable client can react to on the main actor.
 private final class TwilioChatDelegate: NSObject, TwilioConversationsClientDelegate, @unchecked Sendable {
@@ -268,4 +243,3 @@ private final class TwilioChatDelegate: NSObject, TwilioConversationsClientDeleg
         }
     }
 }
-#endif

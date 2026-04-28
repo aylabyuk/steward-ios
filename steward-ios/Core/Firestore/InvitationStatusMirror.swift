@@ -3,10 +3,7 @@ import StewardCore
 
 #if canImport(FirebaseFirestore)
 import FirebaseFirestore
-
-#if canImport(TwilioConversationsClient)
 @preconcurrency import TwilioConversationsClient
-#endif
 
 /// Mirror status changes onto the invitation doc + post a system
 /// notice into the Twilio Conversation. Mirrors the web's
@@ -55,7 +52,6 @@ enum InvitationStatusMirror {
         }
     }
 
-    #if canImport(TwilioConversationsClient)
     /// Post the centred system notice into the Twilio Conversation.
     /// Only confirmed/declined transitions get a chat line — the web
     /// short-circuits the same way. Best-effort: a failure leaves the
@@ -114,7 +110,6 @@ enum InvitationStatusMirror {
             }
         }
     }
-    #endif
 }
 
 #endif
