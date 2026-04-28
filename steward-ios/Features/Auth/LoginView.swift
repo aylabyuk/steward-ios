@@ -1,12 +1,21 @@
 import SwiftUI
 import StewardCore
+import AuthenticationServices
 
 #if canImport(FirebaseAuth)
 struct LoginView: View {
     let auth: AuthClient
-    @State private var email: String = ""
-    @State private var password: String = ""
     @State private var isSubmitting: Bool = false
+    /// Raw nonce stored across the Apple Sign-In request → callback round-trip.
+    /// Apple's `appleCredential` initializer needs the un-hashed value to
+    /// verify the returned identity token's `nonce` claim.
+    @State private var currentAppleNonce: String?
+
+    // DEBUG / emulator-only state for the dev-iteration shortcut.
+    #if DEBUG
+    @State private var debugEmail: String = ""
+    @State private var debugPassword: String = ""
+    #endif
 
     var body: some View {
         ZStack {
@@ -15,18 +24,15 @@ struct LoginView: View {
             VStack(spacing: Spacing.s6) {
                 Spacer(minLength: Spacing.s8)
                 heroLockup
-                loginCard
+                ssoCard
                 #if DEBUG
-                debugBishopShortcut
+                debugShortcut
                 #endif
                 Spacer()
             }
             .padding(.horizontal, Spacing.s5)
         }
         .task {
-            // Debug helper: launching with SIMCTL_CHILD_AUTO_SIGNIN_BISHOP=1
-            // signs in as the seeded bishop immediately so simctl-driven
-            // demos skip the empty form.
             #if DEBUG
             if EmulatorConfig.isEnabled,
                ProcessInfo.processInfo.environment["AUTO_SIGNIN_BISHOP"] == "1" {
@@ -53,38 +59,22 @@ struct LoginView: View {
         .padding(.bottom, Spacing.s2)
     }
 
-    private var loginCard: some View {
+    private var ssoCard: some View {
         VStack(spacing: Spacing.s3) {
-            credentials
+            googleButton
+            appleButton
             errorBanner
-            signInButton
         }
         .cardSurface()
     }
 
-    private var credentials: some View {
-        VStack(spacing: Spacing.s3) {
-            FieldShell {
-                TextField("Email", text: $email)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-            FieldShell {
-                SecureField("Password", text: $password)
-                    .textContentType(.password)
-            }
-        }
-    }
-
-    private var signInButton: some View {
-        Button(action: signIn) {
-            HStack {
+    private var googleButton: some View {
+        Button(action: signInWithGoogle) {
+            HStack(spacing: Spacing.s2) {
                 if isSubmitting {
                     ProgressView().tint(Color.chalk)
                 }
-                Text(isSubmitting ? "Signing in…" : "Sign in")
+                Text(isSubmitting ? "Signing in…" : "Continue with Google")
                     .font(.bodyEmphasis)
                     .frame(maxWidth: .infinity)
             }
@@ -92,24 +82,24 @@ struct LoginView: View {
         }
         .buttonStyle(.glassProminent)
         .tint(Color.bordeaux)
-        .disabled(isSubmitting || email.isEmpty || password.isEmpty)
+        .disabled(isSubmitting)
     }
 
-    @ViewBuilder
-    private var debugBishopShortcut: some View {
-        if EmulatorConfig.isEnabled {
-            VStack(spacing: Spacing.s2) {
-                Text("DEBUG · EMULATOR ONLY")
-                    .font(.monoMicro)
-                    .tracking(1.2)
-                    .foregroundStyle(Color.walnut3)
-                Button("Sign in as bishop@e2e.local", action: signInAsBishop)
-                    .buttonStyle(.glass)
-                    .tint(Color.brass)
-                    .disabled(isSubmitting)
-            }
-            .padding(.top, Spacing.s2)
-        }
+    private var appleButton: some View {
+        SignInWithAppleButton(
+            .signIn,
+            onRequest: { request in
+                let nonce = Nonce.random()
+                self.currentAppleNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = Nonce.sha256(nonce)
+            },
+            onCompletion: handleAppleCompletion
+        )
+        .signInWithAppleButtonStyle(.black)  // `.whiteOutline` reads better in light cream — pick later
+        .frame(height: 44)
+        .clipShape(.rect(cornerRadius: Radius.lg))
+        .disabled(isSubmitting)
     }
 
     @ViewBuilder
@@ -125,38 +115,73 @@ struct LoginView: View {
         }
     }
 
-    private func signIn() {
-        submit(email: email, password: password)
+    @ViewBuilder
+    private var debugShortcut: some View {
+        if EmulatorConfig.isEnabled {
+            VStack(spacing: Spacing.s2) {
+                Text("DEBUG · EMULATOR ONLY")
+                    .font(.monoMicro)
+                    .tracking(1.2)
+                    .foregroundStyle(Color.walnut3)
+                Button("Sign in as bishop@e2e.local", action: signInAsBishop)
+                    .buttonStyle(.glass)
+                    .tint(Color.brass)
+                    .disabled(isSubmitting)
+            }
+            .padding(.top, Spacing.s2)
+        }
     }
 
-    private func signInAsBishop() {
-        submit(email: "bishop@e2e.local", password: "test1234")
-    }
-
-    private func submit(email: String, password: String) {
+    private func signInWithGoogle() {
         isSubmitting = true
         Task {
-            await auth.signIn(email: email, password: password)
+            await auth.signInWithGoogle()
             isSubmitting = false
         }
     }
-}
 
-/// Tailored field shell mirroring the web's
-/// `rounded-md border border-border bg-chalk px-2 py-1`.
-private struct FieldShell<Content: View>: View {
-    @ViewBuilder var content: Content
-    var body: some View {
-        content
-            .font(.bodyDefault)
-            .foregroundStyle(Color.walnut)
-            .padding(.horizontal, Spacing.s3)
-            .padding(.vertical, Spacing.s3)
-            .background(Color.chalk, in: .rect(cornerRadius: Radius.default))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.default)
-                    .stroke(Color.border, lineWidth: 1)
-            )
+    private func signInAsBishop() {
+        isSubmitting = true
+        Task {
+            await auth.signIn(email: "bishop@e2e.local", password: "test1234")
+            isSubmitting = false
+        }
+    }
+
+    private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let appleCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = appleCredential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8),
+                  let rawNonce = currentAppleNonce
+            else {
+                // Defensive: Apple didn't return what we asked for. Surface
+                // a generic error rather than crashing.
+                auth.recordError(NSError(
+                    domain: "Steward.Auth", code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Apple sign-in returned no identity token."]
+                ))
+                return
+            }
+            isSubmitting = true
+            Task {
+                await auth.signInWithApple(
+                    idToken: idToken,
+                    rawNonce: rawNonce,
+                    fullName: appleCredential.fullName
+                )
+                currentAppleNonce = nil
+                isSubmitting = false
+            }
+        case .failure(let error):
+            // User cancellation reports as ASAuthorizationError.canceled —
+            // don't show that as an error banner.
+            if let asError = error as? ASAuthorizationError, asError.code == .canceled {
+                return
+            }
+            auth.recordError(error)
+        }
     }
 }
 

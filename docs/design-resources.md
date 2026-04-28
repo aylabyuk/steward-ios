@@ -109,6 +109,20 @@ VStack { … }
     // = padding(24) + chalk fill + 1pt border + radius lg + elev1 shadow
 ```
 
+## Screen inventory (current)
+
+| Screen | iOS file | Used for |
+|---|---|---|
+| Login | `steward-ios/Features/Auth/LoginView.swift` | Continue-with-Google + Sign-in-with-Apple, debug bishop shortcut in emulator mode |
+| Access required | `steward-ios/Features/Auth/AccessRequiredView.swift` | Signed-in user has no active member doc — show their email + sign-out CTA + "Hide My Email" hint when relevant |
+| Ward picker | `steward-ios/Features/Auth/WardPickerView.swift` | Multi-ward member chooses which ward to operate on |
+| Schedule | `steward-ios/Features/Schedule/ScheduleView.swift` | Live `wards/{wardId}/meetings` list, grouped by month, with sticky glass "Sign out" pill |
+| Loading | inlined in `RootView.swift` | Brief between auth-resolved and ward-access-resolved (or while CurrentWard is being set from `.single`) |
+
+Each screen uses the parchment background + AppBarHeader hero pattern
+where applicable, and routes user actions through `AuthClient` /
+`CurrentWard` / `WardAccessClient` rather than holding their own state.
+
 ## When to reach for Liquid Glass
 
 iOS 26 ships native Liquid Glass — use it sparingly, where the web already

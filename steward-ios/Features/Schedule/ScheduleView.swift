@@ -8,7 +8,7 @@ struct ScheduleView: View {
 
     @State private var schedule: CollectionSubscription<Meeting>
 
-    init(auth: AuthClient, wardId: String = "stv1") {
+    init(auth: AuthClient, wardId: String) {
         self.auth = auth
         self.wardId = wardId
         let path = "wards/\(wardId)/meetings"

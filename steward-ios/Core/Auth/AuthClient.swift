@@ -45,6 +45,57 @@ final class AuthClient {
         }
     }
 
+    /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
+    /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is set
+    /// the SDK redirects to the Firebase Auth emulator's fake account
+    /// chooser at `localhost:9099/emulator/auth/handler` — same UX the web
+    /// app gets in emulator mode, no real Google OAuth round-trip.
+    func signInWithGoogle() async {
+        do {
+            let provider = OAuthProvider(providerID: "google.com")
+            let credential = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthCredential, Error>) in
+                provider.getCredentialWith(nil) { credential, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if let credential {
+                        continuation.resume(returning: credential)
+                    } else {
+                        continuation.resume(throwing: AuthError.missingCredential)
+                    }
+                }
+            }
+            _ = try await Auth.auth().signIn(with: credential)
+            self.lastError = nil
+        } catch {
+            self.lastError = error
+        }
+    }
+
+    /// Sign in with Apple. The caller (typically `SignInWithAppleButton`'s
+    /// `onCompletion` closure) provides the raw nonce that was hashed in
+    /// the request, plus the identity token returned by Apple. Firebase
+    /// uses the nonce to verify the token wasn't replayed.
+    func signInWithApple(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async {
+        do {
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: rawNonce,
+                fullName: fullName
+            )
+            _ = try await Auth.auth().signIn(with: credential)
+            self.lastError = nil
+        } catch {
+            self.lastError = error
+        }
+    }
+
+    /// Surface an error that originated outside `AuthClient` itself —
+    /// e.g. the SwiftUI `SignInWithAppleButton` callback path that
+    /// hands us an `ASAuthorizationError` to display.
+    func recordError(_ error: Error) {
+        self.lastError = error
+    }
+
     func signOut() {
         do {
             try Auth.auth().signOut()
@@ -57,6 +108,16 @@ final class AuthClient {
     /// Wraps Firebase's listener-handle API as an `AsyncStream`. The
     /// continuation owns the handle and removes the listener when the consumer
     /// terminates (task cancelled or stream finished).
+    enum AuthError: LocalizedError {
+        case missingCredential
+        var errorDescription: String? {
+            switch self {
+            case .missingCredential:
+                "OAuth provider returned without a credential or an error."
+            }
+        }
+    }
+
     private nonisolated static func authStateStream() -> AsyncStream<User?> {
         let (stream, continuation) = AsyncStream.makeStream(
             of: User?.self,

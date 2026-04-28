@@ -128,6 +128,64 @@ The two web-repo files most worth reading before writing equivalent iOS code:
 - `src/hooks/_sub.ts` — the `useDocSnapshot` / `useCollectionSnapshot` primitives. Lines 60–86 contain two subtleties (start `loading: true` until every path segment is non-empty; skip the `fromCache && !exists()` first-fire) that the iOS `FirestoreSubscription<T>` must mirror.
 - `src/lib/types/` — nine Zod schemas that translate directly to Swift `Codable`. These are the source of truth for the data layer.
 
+## Auth model
+
+The app routes through a four-state machine the moment `auth.isSignedIn`
+flips, mirroring the web's `AuthGate` + `useWardAccess` pattern:
+
+```
+LoginView ──(sign in)──▶ checking ──▶ none      ──▶ AccessRequiredView
+                                  ──▶ single    ──▶ ScheduleView(wardId)
+                                  ──▶ multiple  ──▶ WardPickerView ──▶ ScheduleView
+```
+
+- **Two SSO providers + email/password.** `LoginView` shows "Continue with
+  Google" and "Sign in with Apple" — both go through Firebase's unified
+  `Auth.signIn(with: credential)`. The `signInWithGoogle()` path uses
+  `OAuthProvider(providerID: "google.com").getCredentialWith(nil)`,
+  which routes through `ASWebAuthenticationSession`. With
+  `Auth.useEmulator(...)` set, that session opens the **Firebase Auth
+  emulator's fake Google account chooser** at
+  `localhost:9099/emulator/auth/handler` — same UX the web has, no real
+  Google OAuth round-trip. No `GoogleSignIn-iOS` SDK; no SHA fingerprint
+  dance. Apple Sign-In uses `SignInWithAppleButton` →
+  `OAuthProvider.appleCredential(...)` → same `signIn(with:)` terminus.
+  `bishop@e2e.local` / `test1234` debug shortcut stays for fast dev
+  iteration in `#if DEBUG && EmulatorConfig.isEnabled`.
+- **Allowlist gate.** `WardAccessClient` (in `StewardCore/Auth/`)
+  subscribes to the `collectionGroup("members") where email == X and
+  active == true` query — same query the web uses — and resolves
+  `WardAccess.checking | none | single | multiple`. The Firestore
+  adapter (`MemberAccessSource`) encodes `wardId/uid` from the doc path
+  into the snapshot's `id` so the resolution stays a pure transform
+  (testable without Firebase).
+- **Current ward.** `CurrentWard` is the wardId every Firestore-scoped
+  feature (schedule, soon week-editor, etc.) reads. Auto-resolved for
+  single-ward members; the `WardPickerView` writes it for multi-ward
+  members. Cleared on sign-out so listeners tear down cleanly.
+- **Apple "Hide My Email" caveat.** Apple's private-relay
+  `@privaterelay.appleid.com` addresses won't match a member doc's
+  email and route the user to `AccessRequiredView`. The view detects
+  the suffix and surfaces a hint: re-sign-in with "Share My Email".
+  Long-term fix is to also key member docs on `auth.uid` — out of scope
+  for this PR.
+- **OAuth URL scheme.** `Info.plist` registers a `CFBundleURLTypes`
+  entry with the project's `REVERSED_CLIENT_ID`
+  (`com.googleusercontent.apps.159630054981-…`) so Google's OAuth
+  callback can return to the app. Apple Sign-In needs the
+  `com.apple.developer.applesignin` entitlement
+  (`steward-ios.entitlements`); the IDE-side capability metadata isn't
+  added to `project.pbxproj` (Xcode builds it without that — only the
+  entitlement file matters). Free Apple ID provisioning may not
+  support Apple Sign-In on physical devices; simulator works fine.
+
+**Files of record:**
+- `LocalPackages/StewardCore/Sources/StewardCore/Auth/{WardAccess,WardAccessClient,CurrentWard}.swift`
+- `steward-ios/Core/Auth/{AuthClient,Nonce}.swift`
+- `steward-ios/Core/Firestore/MemberAccessSource.swift`
+- `steward-ios/Features/Auth/{LoginView,AccessRequiredView,WardPickerView}.swift`
+- `steward-ios/App/RootView.swift` (the four-state state machine)
+
 ## Design system
 
 iOS mirrors the web app's visual identity (cream parchment + walnut text +
