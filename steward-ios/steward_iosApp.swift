@@ -1,17 +1,14 @@
-//
-//  steward_iosApp.swift
-//  steward-ios
-//
-//  Created by Oriel Absin on 2026-04-27.
-//
-
 import SwiftUI
 
 @main
 struct steward_iosApp: App {
+    init() {
+        FirebaseSetup.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }

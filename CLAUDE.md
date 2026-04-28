@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-`steward-ios` is a **net-new SwiftUI port** of the Steward web app (a PWA used by ward bishoprics). At the time of writing, the Xcode project is the bare template — `steward_iosApp.swift` + `ContentView.swift` only. No SPM dependencies, no folder structure, no tests, no CI yet. We are at the start of the **Phase 0 spike** (started 2026-04-27).
+`steward-ios` is a **net-new SwiftUI port** of the Steward web app (a PWA used by ward bishoprics). Phase 0 spike is in progress (started 2026-04-27). The folder layout has been restructured into the planned `App/ Features/ Core/ Models/ DesignSystem/`, `EmulatorConfig` and a stub `FirebaseSetup` are in place, the ATS exception is wired, and `StewardTests/` contains failing tests for the not-yet-added Firebase SDK + test target. The user has chosen **test-driven development** for this project.
 
 The full implementation plan, phase breakdown, App Store compliance checklist, and CI/CD design lives at:
 
@@ -15,16 +15,16 @@ The full implementation plan, phase breakdown, App Store compliance checklist, a
 
 ## Building & running
 
-This is a standard Xcode 26 app project, no workspace, no Pods, no SPM manifest yet (deps will be added through Xcode's package UI).
+Standard Xcode 26 app project — no workspace, no Pods, no `Package.swift`. Firebase SDK gets added later through Xcode's `File ▸ Add Package Dependencies…` UI.
 
 ```sh
-# Build for simulator
+# Build for simulator (current installed sim is iPhone 17 / iOS 26.4.1)
 xcodebuild -project steward-ios.xcodeproj -scheme steward-ios \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
 
-# Run tests once a test target exists (none yet)
+# Run tests (requires the StewardTests target to be added first — see below)
 xcodebuild -project steward-ios.xcodeproj -scheme steward-ios \
-  -destination 'platform=iOS Simulator,name=iPhone 16' test
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
 
 # Clean
 xcodebuild -project steward-ios.xcodeproj -scheme steward-ios clean
@@ -32,11 +32,60 @@ xcodebuild -project steward-ios.xcodeproj -scheme steward-ios clean
 
 For day-to-day work, open `steward-ios.xcodeproj` in Xcode and use ⌘R / ⌘U.
 
+## Local development against the steward web emulators
+
+The iOS app is wired to talk to the Firebase emulator suite that ships with the sibling web project at `/Users/oriel/projects/steward/`. Running both side-by-side is the Phase 0 happy path — no real Firebase project needed until APNs/TestFlight come into play.
+
+**1. Start the emulators** (in the web repo):
+
+```sh
+cd /Users/oriel/projects/steward
+pnpm emulators
+```
+
+This runs `firebase emulators:start --only auth,firestore,functions,pubsub --import=./emulator-data --export-on-exit ./emulator-data`. Emulator UI: `http://localhost:4000`. Ports: Auth 9099, Firestore 8080, Functions 5001, Pub/Sub 8085. All bind to `0.0.0.0`, so the LAN reaches them too.
+
+**2. Configure the iOS scheme.** `Product ▸ Scheme ▸ Edit Scheme… ▸ Run ▸ Arguments ▸ Environment Variables`. Mark the scheme **Shared** so the env vars commit to git:
+
+| Key             | Value (simulator)  | Value (tethered iPhone)            |
+|-----------------|--------------------|------------------------------------|
+| `USE_EMULATOR`  | `1`                | `1`                                |
+| `EMULATOR_HOST` | `127.0.0.1`        | Mac's LAN IP (e.g. `192.168.x.y`)  |
+
+For tethered device, run `./scripts/print-emulator-host.sh` from the repo root — it prints the right IP and the exact instructions.
+
+**3. Sign in as the seeded bishop.** The web app's emulator data ships with `bishop@e2e.local` / `test1234` (uid `G2Bcy1N7aLAAkZd94WYqDwJ9cYwV`) in ward `stv1` ("Eglinton Ward"). Phase 0 uses email/password against the Auth emulator — Google Sign-In gets layered on later when the app starts pointing at the real `steward-dev-5e4dc` project. (The plan doc's "Google Sign-In with allowlist" line in Phase 0 is being amended.)
+
+**4. The wiring lives in two files**, both gated so the project compiles even before the Firebase SPM packages are added:
+
+- `steward-ios/App/EmulatorConfig.swift` — `isEnabled` / `host` derived from process env. Pure, unit-tested.
+- `steward-ios/App/FirebaseSetup.swift` — `configure()` calls `FirebaseApp.configure()` and `useEmulator(...)` on Auth/Firestore/Functions when `EmulatorConfig.isEnabled`. `#if canImport(FirebaseCore)` guard means this is a no-op stub until the user adds Firebase via `File ▸ Add Package Dependencies…` (products: FirebaseAuth, FirebaseFirestore, FirebaseFunctions). Defer FirebaseMessaging until the APNs step.
+
+**5. The Info.plist** is at the repo root (not under `steward-ios/`) deliberately — synced root groups would otherwise auto-include it as a copied resource and collide with the Info.plist processing step. `INFOPLIST_FILE = Info.plist` and `GENERATE_INFOPLIST_FILE = NO` in `project.pbxproj`. ATS allows local networking for emulator HTTP via `NSAllowsLocalNetworking = true`.
+
+## Test-driven development
+
+User has explicitly opted into TDD for this project (see `feedback_use_swift_skills.md` memory and the `swift-testing-pro` skill). Cadence:
+
+1. **Write the test first** in `StewardTests/` using Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`). Run it red.
+2. **Implement the minimum** to make it green.
+3. **Refactor** once green, with the test as a safety net.
+
+Currently in `StewardTests/`:
+- `EmulatorConfigTests.swift` — pure unit tests (no Firebase deps, ready to run as soon as the test target exists).
+- `EmulatorConnectivityTests.swift` — integration tests that hit the running emulators; gated behind `#if canImport(FirebaseCore)` so the file compiles regardless of SPM state.
+
+**Two structural prerequisites** need to be done in Xcode UI before tests can actually execute:
+1. **Add a test target.** `File ▸ New ▸ Target ▸ Unit Testing Bundle`, name `StewardTests`, language Swift, **enable "Use Swift Testing"**. Point its sources at the existing `StewardTests/` directory on disk.
+2. **Add Firebase SDK.** `File ▸ Add Package Dependencies…` → `https://github.com/firebase/firebase-ios-sdk` → products: `FirebaseAuth`, `FirebaseFirestore`, `FirebaseFunctions`.
+
+Once both land, `xcodebuild test ...` runs both suites, and `EmulatorConnectivityTests` proves the spike's auth + Firestore round-trips end-to-end.
+
 ## Project structure rules
 
-The Xcode project uses **`PBXFileSystemSynchronizedRootGroup`** (Xcode 16+ synced folders). The `steward-ios/` directory on disk *is* the source group — adding, moving, or deleting files in the filesystem auto-syncs into the build target. **Do not hand-edit `project.pbxproj` to add source files.** Just write the file to the right path on disk.
+The Xcode project uses **`PBXFileSystemSynchronizedRootGroup`** (Xcode 16+ synced folders). The `steward-ios/` directory on disk *is* the source group — adding, moving, or deleting Swift files in the filesystem auto-syncs into the build target. **Do not hand-edit `project.pbxproj` to add source files.** Just write the file to the right path on disk.
 
-This makes the planned restructure (`App/ Features/ Core/ Models/ DesignSystem/` per the plan) a pure file-move operation; no project surgery required.
+There's one important exception: **non-source files that the build system also needs to process specially (Info.plist, GoogleService-Info.plist) cannot live inside the synced group** without colliding with their dedicated processing steps. Keep them at the repo root and reference them via build settings (`INFOPLIST_FILE = Info.plist`).
 
 ## Build settings worth knowing
 
