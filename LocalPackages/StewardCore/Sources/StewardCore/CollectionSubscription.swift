@@ -27,7 +27,7 @@ public final class CollectionSubscription<T: Decodable & Sendable> {
     public private(set) var loading: Bool = true
     public private(set) var error: Error?
 
-    nonisolated(unsafe) private var task: Task<Void, Never>?
+    private var task: Task<Void, Never>?
 
     public init(
         source: (any SnapshotSource<CollectionSnap>)?,
@@ -44,7 +44,7 @@ public final class CollectionSubscription<T: Decodable & Sendable> {
         }
     }
 
-    deinit {
+    isolated deinit {
         task?.cancel()
     }
 

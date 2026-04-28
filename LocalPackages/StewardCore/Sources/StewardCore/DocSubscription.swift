@@ -8,8 +8,7 @@ import Observation
 ///      segments are all populated). Without this, callers read the
 ///      pre-subscription frame as "loaded with no data" and seed defaults.
 ///   2. Skip the synthetic `fromCache && !exists` first fire that Firestore
-///      emits before the network response arrives. (Implemented in a
-///      subsequent slice; the current source contract is `DocSnap`.)
+///      emits before the network response arrives.
 @Observable
 @MainActor
 public final class DocSubscription<T: Decodable & Sendable> {
@@ -17,7 +16,7 @@ public final class DocSubscription<T: Decodable & Sendable> {
     public private(set) var loading: Bool = true
     public private(set) var error: Error?
 
-    nonisolated(unsafe) private var task: Task<Void, Never>?
+    private var task: Task<Void, Never>?
 
     public init(
         source: (any SnapshotSource<DocSnap>)?,
@@ -38,7 +37,7 @@ public final class DocSubscription<T: Decodable & Sendable> {
         }
     }
 
-    deinit {
+    isolated deinit {
         task?.cancel()
     }
 
