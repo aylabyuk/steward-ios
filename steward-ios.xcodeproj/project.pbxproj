@@ -469,7 +469,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		BEE63D002FA20000002CF39C /* XCLocalSwiftPackageReference "LocalPackages/StewardCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "LocalPackages/StewardCore";
+			relativePath = LocalPackages/StewardCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -516,37 +516,12 @@
 			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFunctions;
 		};
-		BEE63BC72FA05FF9002CF39C /* FirebaseAuth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAuth;
-		};
-		BEE63BC92FA0600B002CF39C /* FirebaseFirestore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseFirestore;
-		};
-		BEE63BCB2FA06012002CF39C /* FirebaseFunctions */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEE63BAE2FA05D50002CF39C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseFunctions;
-		};
 		BEE63BD22FA10002002CF39C /* abseil */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */;
 			productName = abseil;
 		};
 		BEE63BD32FA10003002CF39C /* gRPC-C++ */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */;
-			productName = "gRPC-C++";
-		};
-		BEE63BD42FA10004002CF39C /* abseil */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEE63BD02FA10000002CF39C /* XCRemoteSwiftPackageReference "abseil-cpp-binary" */;
-			productName = abseil;
-		};
-		BEE63BD52FA10005002CF39C /* gRPC-C++ */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BEE63BD12FA10001002CF39C /* XCRemoteSwiftPackageReference "grpc-binary" */;
 			productName = "gRPC-C++";
