@@ -39,6 +39,7 @@ struct RootView: View {
         case .multiple(let members):
             if let wardId = currentWard.wardId {
                 ScheduleView(auth: auth, wardId: wardId)
+                    .id(wardId)
             } else {
                 WardPickerView(auth: auth, currentWard: currentWard, members: members)
             }
@@ -49,6 +50,7 @@ struct RootView: View {
     private var scheduleOrLoading: some View {
         if let wardId = currentWard.wardId {
             ScheduleView(auth: auth, wardId: wardId)
+                .id(wardId)
         } else {
             // `.single(_)` resolves CurrentWard via .onChange of state, but
             // there's a one-tick window before that fires; render the

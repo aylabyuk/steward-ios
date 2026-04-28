@@ -14,6 +14,8 @@ import FirebaseAuth
 final class AuthClient {
     private(set) var uid: String?
     private(set) var email: String?
+    private(set) var displayName: String?
+    private(set) var photoURL: URL?
     private(set) var lastError: Error?
 
     private var task: Task<Void, Never>?
@@ -24,6 +26,8 @@ final class AuthClient {
                 guard let self else { return }
                 self.uid = user?.uid
                 self.email = user?.email
+                self.displayName = user?.displayName
+                self.photoURL = user?.photoURL
             }
         }
     }

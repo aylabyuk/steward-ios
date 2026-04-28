@@ -89,4 +89,9 @@ struct AccessRequiredView: View {
     AccessRequiredView(auth: AuthClient())
         .preferredColorScheme(.light)
 }
+
+#Preview("Dark · regular email") {
+    AccessRequiredView(auth: AuthClient())
+        .preferredColorScheme(.dark)
+}
 #endif

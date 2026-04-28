@@ -58,7 +58,7 @@ public struct StatusBadge: View {
             }
         }
 
-        var foreground: Color {
+        public var foreground: Color {
             switch self {
             case .neutral: .walnut2
             case .pending: .brassDeep
@@ -66,7 +66,7 @@ public struct StatusBadge: View {
             case .destructive: .bordeaux
             }
         }
-        var background: Color {
+        public var background: Color {
             switch self {
             case .neutral: .parchment2
             case .pending: .brassSoft
@@ -74,7 +74,7 @@ public struct StatusBadge: View {
             case .destructive: .dangerSoft
             }
         }
-        var border: Color {
+        public var border: Color {
             switch self {
             case .neutral: .border
             case .pending: .brassSoft

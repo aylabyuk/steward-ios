@@ -56,6 +56,17 @@ public extension Color {
     /// Brass on dark / strong brass labels. Web `--color-brass-deep`.
     static let brassDeep = dynamic(light: 0x8E6A36, dark: 0xC89B5A)
 
+    // MARK: App bar (always-dark surface)
+
+    /// Top app-bar background. Intentionally non-swapping — the bar reads as
+    /// a dark surface in both modes. Slightly darker in dark mode so it
+    /// stays distinct from the (also-dark) page background.
+    static let appBar = dynamic(light: 0x3B2A22, dark: 0x100A07)
+    /// Text/icon foreground that sits on `appBar`. Always parchment-cream.
+    static let onAppBar = Color(hex: 0xFBF6EE)
+    /// Muted text on `appBar` (e.g. chevrons, secondary labels). Cream at 70%.
+    static let onAppBarMuted = Color(hex: 0xFBF6EE, opacity: 0.70)
+
     // MARK: Borders
 
     /// Default border. Web `--color-border`.

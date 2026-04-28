@@ -62,7 +62,7 @@ public final class CollectionSubscription<T: Decodable & Sendable> {
                     decoded.append(.init(id: doc.id, data: try decoder(doc.data)))
                 } catch {
                     Self.logger.error(
-                        "Schema parse failed at \(path ?? "<unknown>", privacy: .public)/\(doc.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        "Schema parse failed at \(path ?? "<unknown>", privacy: .public)/\(doc.id, privacy: .public): \(error, privacy: .public)"
                     )
                 }
             }

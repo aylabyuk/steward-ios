@@ -7,6 +7,63 @@ import Testing
 
 private let posix = Locale(identifier: "en_US_POSIX")
 
+@Suite("Meeting type fallback — what the card looks like when no doc exists")
+struct MeetingTypeFallbackTests {
+
+    @Test("First Sunday of the month falls back to a fast Sunday")
+    func firstSundayIsFast() {
+        // 2026-05-03 was the first Sunday of May 2026.
+        #expect(Meeting.fallbackType(forDate: "2026-05-03") == "fast")
+        // 2026-04-26 was the LAST Sunday of April (day 26 > 7) — regular.
+        #expect(Meeting.fallbackType(forDate: "2026-04-26") == "regular")
+    }
+
+    @Test("Other weeks of the month fall back to regular")
+    func laterSundaysAreRegular() {
+        #expect(Meeting.fallbackType(forDate: "2026-05-10") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-17") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-24") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-31") == "regular")
+    }
+
+    @Test("Unparseable date IDs default to regular so the row still renders")
+    func unparseable() {
+        #expect(Meeting.fallbackType(forDate: "garbage") == "regular")
+    }
+}
+
+@Suite("Meeting card body — what the user reads inside each meeting card")
+struct MeetingCardBodyTests {
+
+    @Test("Fast Sundays mark the card as a testimony meeting")
+    func fastIsTestimony() {
+        #expect(Meeting(meetingType: "fast").isTestimonyMeeting)
+        #expect(Meeting(meetingType: "regular").isTestimonyMeeting == false)
+        #expect(Meeting(meetingType: nil).isTestimonyMeeting == false)
+    }
+
+    @Test("Opening + closing prayer assignees surface from the meeting doc")
+    func prayerAssignees() throws {
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": { "person": { "name": "Sister Davis" } },
+            "benediction":   { "person": { "name": "Brother Cole" } }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayerName == "Sister Davis")
+        #expect(meeting.benedictionName == "Brother Cole")
+    }
+
+    @Test("Missing prayer assignments surface as nil so the UI can render 'Not assigned'")
+    func unassignedPrayers() {
+        let meeting = Meeting(meetingType: "regular")
+        #expect(meeting.openingPrayerName == nil)
+        #expect(meeting.benedictionName == nil)
+    }
+}
+
 @Suite("Meeting type badge — what label and tone the schedule row shows")
 struct MeetingTypeBadgeTests {
 
