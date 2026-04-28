@@ -6,65 +6,110 @@ struct MeetingRow: View {
     let meeting: Meeting
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(displayDate)
-                    .font(.headline)
-                Spacer()
-                Text(meeting.meetingTypeLabel)
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(.fill.tertiary, in: .capsule)
-                    .accessibilityLabel("Meeting type: \(meeting.meetingTypeLabel)")
-            }
-            if let conducting = meeting.conductingName {
-                Text("Conducting: \(conducting)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            if let presiding = meeting.presidingName {
-                Text("Presiding: \(presiding)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            if let status = meeting.status, status.isEmpty == false {
-                Text(status.replacing("_", with: " ").capitalized)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+        VStack(alignment: .leading, spacing: Spacing.s2) {
+            headerRow
+            assignmentLines
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, Spacing.s4)
+        .padding(.vertical, Spacing.s3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.border)
+                .frame(height: 0.5)
+        }
     }
 
-    private var displayDate: String {
-        let strategy = Date.ISO8601FormatStyle()
-            .year().month().day()
-        if let parsed = try? Date(date, strategy: strategy) {
-            return parsed.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    private var headerRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s3) {
+            Text(ShortDateFormatter.shortDate(fromISO8601: date))
+                .font(.displaySection)
+                .foregroundStyle(Color.walnut)
+
+            if let badge = meeting.typeBadge {
+                StatusBadge(label: badge.label, tone: badge.tone)
+            }
+
+            Spacer()
+
+            if let status = meeting.status {
+                StatusBadge(rawStatus: status)
+            }
         }
-        return date
+    }
+
+    @ViewBuilder
+    private var assignmentLines: some View {
+        if meeting.conductingName != nil || meeting.presidingName != nil {
+            VStack(alignment: .leading, spacing: 2) {
+                if let conducting = meeting.conductingName {
+                    AssignmentLine(role: "Conducting", name: conducting)
+                }
+                if let presiding = meeting.presidingName {
+                    AssignmentLine(role: "Presiding", name: presiding)
+                }
+            }
+        }
+    }
+
+}
+
+private struct AssignmentLine: View {
+    let role: String
+    let name: String
+    var body: some View {
+        HStack(spacing: Spacing.s2) {
+            Text(role.uppercased())
+                .font(.monoMicro)
+                .tracking(1.2)
+                .foregroundStyle(Color.brassDeep)
+                .frame(width: 80, alignment: .leading)
+            Text(name)
+                .font(.bodySmall)
+                .foregroundStyle(Color.walnut2)
+        }
     }
 }
 
-#Preview {
-    List {
+#Preview("Light") {
+    VStack(spacing: 0) {
         MeetingRow(
-            date: "2026-04-28",
+            date: "2026-04-26",
             meeting: Meeting(
-                meetingType: "regular",
-                status: "approved",
+                meetingType: "regular", status: "approved",
                 conducting: .init(person: .init(name: "Bishop Smith")),
                 presiding: .init(person: .init(name: "President Jones"))
             )
         )
         MeetingRow(
-            date: "2026-05-05",
+            date: "2026-05-03",
             meeting: Meeting(
-                meetingType: "fast",
-                status: "draft",
+                meetingType: "fast", status: "draft",
                 conducting: .init(person: .init(name: "Brother Lee"))
             )
         )
+        MeetingRow(
+            date: "2026-05-10",
+            meeting: Meeting(meetingType: "regular", status: "pending_approval")
+        )
+        MeetingRow(
+            date: "2026-05-17",
+            meeting: Meeting(meetingType: "stake", status: "published")
+        )
     }
+    .background(Color.parchment)
+    .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    MeetingRow(
+        date: "2026-04-26",
+        meeting: Meeting(
+            meetingType: "regular", status: "approved",
+            conducting: .init(person: .init(name: "Bishop Smith")),
+            presiding: .init(person: .init(name: "President Jones"))
+        )
+    )
+    .background(Color.parchment)
+    .preferredColorScheme(.dark)
 }

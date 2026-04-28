@@ -21,48 +21,116 @@ struct ScheduleView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack(alignment: .top) {
+            Color.parchment.ignoresSafeArea()
             content
-                .navigationTitle("Schedule")
-                .toolbar { signOutToolbar }
+            stickyToolbar
         }
     }
 
     @ViewBuilder
     private var content: some View {
         if schedule.loading {
-            ProgressView("Loading schedule…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            loadingState
         } else if let error = schedule.error {
-            ContentUnavailableView(
-                "Couldn't load schedule",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            errorState(error)
         } else if schedule.items.isEmpty {
-            ContentUnavailableView(
-                "No meetings yet",
-                systemImage: "calendar",
-                description: Text("Add meetings on the web to see them here.")
-            )
+            emptyState
         } else {
-            List(sortedItems) { item in
-                MeetingRow(date: item.id, meeting: item.data)
+            ScrollView {
+                AppBarHeader(
+                    eyebrow: "Ward administration",
+                    title: "Schedule",
+                    description: "Upcoming sacrament meetings."
+                )
+                .padding(.top, Spacing.s12)  // leave room for the glass toolbar
+
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    ForEach(ScheduleSections.groupByMonth(schedule.items), id: \.title) { section in
+                        Section {
+                            ForEach(section.items) { item in
+                                MeetingRow(date: item.id, meeting: item.data)
+                            }
+                        } header: {
+                            monthHeader(section.title)
+                        }
+                    }
+                }
+                .padding(.bottom, Spacing.s12)
             }
         }
     }
 
-    private var sortedItems: [CollectionItem<Meeting>] {
-        // Document IDs are ISO date strings (YYYY-MM-DD), so lexicographic
-        // sort matches chronological. Most recent first.
-        schedule.items.sorted { $0.id > $1.id }
+    private var stickyToolbar: some View {
+        HStack {
+            Spacer()
+            Button("Sign out", action: auth.signOut)
+                .font(.monoEyebrow)
+                .tracking(1.4)
+                .foregroundStyle(Color.walnut2)
+                .padding(.horizontal, Spacing.s3)
+                .padding(.vertical, Spacing.s2)
+                .glassEffect(.regular.interactive(), in: .capsule)
+        }
+        .padding(.horizontal, Spacing.s4)
+        .padding(.top, Spacing.s2)
     }
 
-    @ToolbarContentBuilder
-    private var signOutToolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button("Sign out", action: auth.signOut)
+    private func monthHeader(_ title: String) -> some View {
+        HStack {
+            Text(title.uppercased())
+                .font(.monoEyebrow)
+                .tracking(1.6)
+                .foregroundStyle(Color.brassDeep)
+            Spacer()
         }
+        .padding(.horizontal, Spacing.s4)
+        .padding(.top, Spacing.s5)
+        .padding(.bottom, Spacing.s2)
+        .background(Color.parchment.opacity(0.95))
     }
+
+    private var loadingState: some View {
+        VStack(spacing: Spacing.s3) {
+            ProgressView()
+            Text("Loading schedule…")
+                .font(.bodySmall)
+                .foregroundStyle(Color.walnut2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func errorState(_ error: Error) -> some View {
+        VStack(spacing: Spacing.s3) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 36))
+                .foregroundStyle(Color.bordeaux)
+            Text("Couldn't load schedule")
+                .font(.displaySection)
+                .foregroundStyle(Color.walnut)
+            Text(error.localizedDescription)
+                .font(.bodySmall)
+                .foregroundStyle(Color.walnut2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.s8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Spacing.s3) {
+            Image(systemName: "calendar")
+                .font(.system(size: 36))
+                .foregroundStyle(Color.walnut3)
+            Text("No meetings yet")
+                .font(.displaySection)
+                .foregroundStyle(Color.walnut)
+            Text("Add meetings on the web to see them here.")
+                .font(.bodySmall)
+                .foregroundStyle(Color.walnut2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
 }
 #endif

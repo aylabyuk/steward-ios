@@ -47,5 +47,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Newsreader.ttf</string>
+		<string>Newsreader-Italic.ttf</string>
+		<string>InterVariable.ttf</string>
+		<string>IBMPlexMono-Regular.ttf</string>
+		<string>IBMPlexMono-Medium.ttf</string>
+		<string>IBMPlexMono-Italic.ttf</string>
+	</array>
 </dict>
 </plist>

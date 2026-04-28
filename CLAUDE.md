@@ -81,11 +81,19 @@ The repo uses a **local Swift Package** at `LocalPackages/StewardCore` for testa
 
 ## Test-driven development
 
-User has explicitly opted into TDD for this project (see `feedback_use_swift_skills.md` memory and the `swift-testing-pro` skill). Cadence:
+**TDD is mandatory on this project.** Tests are written **before** the code they cover — no exceptions. Do not implement a feature, view model, subscription, or callable wrapper without a failing test in place first. If a change is too small or exploratory to warrant a test, it is also too small to commit; either grow it into something testable or throw it away.
 
-1. **Write the test first** in `StewardTests/` using Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`). Run it red.
+**Always consult the `swift-testing-pro` skill before writing or reviewing tests.** Invoke it via the Skill tool at the start of any test-writing work — `@Suite` / `@Test` / `#expect` / `#require` / parameterized tests / `Trait`s / `confirmation` for async / `withKnownIssue` all have idiomatic forms the skill encodes, and we don't want to drift back to XCTest patterns. Run it again as a review pass after a non-trivial test file is written, and any time you're tempted to reach for `XCTAssert*`, `setUp`/`tearDown`, or `XCTestExpectation`.
+
+Cadence (red → green → refactor):
+
+1. **Write the test first** in `StewardTests/` using Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`). Run it and watch it fail for the right reason.
 2. **Implement the minimum** to make it green.
 3. **Refactor** once green, with the test as a safety net.
+
+**Prioritize user-facing behavior over function-level coverage.** Write tests that describe what a bishopric user does and observes — "when the bishop opens the schedule, they see this Sunday's speakers in order", "when sign-in fails, the form shows an error and stays on screen" — not "this private helper returns 3". Drive view models and feature flows from the outside in: assert on the state a SwiftUI view would render (snapshot of a `@Published`/`@Observable` model, the `AttributedString` a row would display, the navigation destination a tap would push). Reach for finer-grained unit tests only when a behavior test can't pin down a tricky branch, or for pure value types like `EmulatorConfig` where there is no user-facing surface to anchor to. A green suite should give us confidence the *app works for the user*, not just that the functions return what they were written to return.
+
+**Backfill tests for already-shipped features as you touch them.** Some Phase 0 code landed before this rule was tightened — that's fine, it's not too late. Whenever you read, modify, or extend an untested feature, add the user-facing behavior test it should have had in the first place *before* making your change. The test characterizes current behavior, then your edit either keeps it green or updates it deliberately. Don't open a separate "add tests" task and don't carve out a backfill epic; the coverage grows organically as we work. If a file you're editing has zero tests, that's the signal — write one now.
 
 Currently in `StewardTests/`:
 - `EmulatorConfigTests.swift` — pure unit tests against `StewardCore.EmulatorConfig`. Run on every `xcodebuild test`.
@@ -120,6 +128,34 @@ The two web-repo files most worth reading before writing equivalent iOS code:
 - `src/hooks/_sub.ts` — the `useDocSnapshot` / `useCollectionSnapshot` primitives. Lines 60–86 contain two subtleties (start `loading: true` until every path segment is non-empty; skip the `fromCache && !exists()` first-fire) that the iOS `FirestoreSubscription<T>` must mirror.
 - `src/lib/types/` — nine Zod schemas that translate directly to Swift `Codable`. These are the source of truth for the data layer.
 
+## Design system
+
+iOS mirrors the web app's visual identity (cream parchment + walnut text +
+bordeaux/brass accents, Newsreader serif + Inter sans + IBM Plex mono) via a
+typed Swift API. **All UI work goes through these tokens** — do not reach for
+ad-hoc `Color(red:...)`, magic spacing numbers, or `.font(.title)` overrides.
+
+- **Token home:** `LocalPackages/StewardCore/Sources/StewardCore/DesignSystem/`
+  (`Colors.swift`, `Fonts.swift`, `Spacing.swift`, `Radii.swift`,
+  `Shadows.swift`).
+- **Reusable views:** `StatusBadge`, `AppBarHeader`, `CardSurface` (the
+  `.cardSurface()` modifier) — same module.
+- **Font bundle:** `steward-ios/Resources/Fonts/*.ttf` (Newsreader, Inter
+  Variable, IBM Plex Mono — all OFL, see bundled `LICENSES.md`). Registered
+  via `UIAppFonts` in `Info.plist`. PostScript names are verified on launch
+  by `steward-ios/App/FontAudit.swift` (DEBUG-only; prints to launch console).
+- **Liquid Glass:** used sparingly, only where the web expresses the same
+  idea (`backdrop-blur-sm`). Floating toolbar buttons + primary CTA — yes.
+  Card surfaces and dense list rows — no, they need solid fills for
+  legibility.
+- **Dark mode:** supported alongside light. Tokens resolve dynamically via
+  `UIColor(dynamicProvider:)`; consumers just write `Color.walnut` and the
+  right hex appears.
+
+**Full reference:** [`docs/design-resources.md`](docs/design-resources.md)
+maps each web token → iOS API, lists the four-state status mapping, and
+documents when to reach for Liquid Glass.
+
 ## Skills to use while writing code
 
 The user has explicitly asked that we lean on the available `swiftui-*` and `swift-*` skills proactively rather than retrofitting. See the `feedback_use_swift_skills.md` auto-memory for the full cadence; the short version:
@@ -127,7 +163,7 @@ The user has explicitly asked that we lean on the available `swiftui-*` and `swi
 - Consult **swiftui-ui-patterns** and **swift-concurrency-pro** *as you write*.
 - Run **swiftui-pro** after any non-trivial view; **swiftui-liquid-glass** for iOS 26 surfaces.
 - Run **swift-security-expert** before merging anything that touches Keychain, OAuth tokens, FCM tokens, or Twilio JWTs.
-- Run **swift-testing-pro** when writing tests; **simplify** after larger chunks.
+- Run **swift-testing-pro** *before* writing any test (TDD is mandatory — see the Test-driven development section); **simplify** after larger chunks.
 
 ## Conventions specific to this codebase
 
