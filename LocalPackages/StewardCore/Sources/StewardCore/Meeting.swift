@@ -82,4 +82,105 @@ public extension Meeting {
     var presidingName: String? {
         presiding?.person?.name
     }
+
+    /// Type-badge driven by the row context. Regular meetings get no badge
+    /// (the row stays visually quiet); fast / stake / general carry their
+    /// own status tone. Mirrors the web's MobileSundayBlock type tags.
+    ///
+    /// Returns `nil` when no badge should be drawn.
+    var typeBadge: (label: String, tone: StatusBadge.Tone)? {
+        switch meetingType {
+        case "fast":
+            return ("Fast & Testimony", .pending)
+        case "stake":
+            return ("Stake Conference", .destructive)
+        case "general":
+            return ("General Conference", .destructive)
+        default:
+            return nil
+        }
+    }
+}
+
+public enum ShortDateFormatter {
+    /// Parse `"2026-05-17"` (Firestore meeting doc IDs) and render
+    /// `"Sun, May 17"`. Falls back to the raw input string when parsing
+    /// fails so we don't render an empty cell.
+    ///
+    /// Doc IDs are *civil dates* (a calendar day, not a timestamp), so we
+    /// parse as UTC midnight and format with the same UTC timezone — that
+    /// way "2026-05-17" reads as May 17 everywhere regardless of the
+    /// device's local zone. Locale is pinned to `en_US_POSIX` by default
+    /// so tests stay deterministic across machines; the production call
+    /// site passes the user's current locale.
+    public static func shortDate(
+        fromISO8601 raw: String,
+        locale: Locale = .current
+    ) -> String {
+        guard let parsed = parseCivilDate(raw) else { return raw }
+        var style = Date.FormatStyle()
+            .weekday(.abbreviated)
+            .month(.abbreviated)
+            .day()
+            .locale(locale)
+        style.timeZone = .gmt
+        return parsed.formatted(style)
+    }
+
+    /// Render the month-section title for a given doc ID:
+    /// `"2026-05-17"` → `"May 2026"` (locale-aware, UTC-pinned for the
+    /// same civil-date rationale as `shortDate`).
+    public static func monthYear(
+        fromISO8601 raw: String,
+        locale: Locale = .current
+    ) -> String? {
+        guard let parsed = parseCivilDate(raw) else { return nil }
+        var style = Date.FormatStyle()
+            .month(.wide)
+            .year()
+            .locale(locale)
+        style.timeZone = .gmt
+        return parsed.formatted(style)
+    }
+
+    private static func parseCivilDate(_ raw: String) -> Date? {
+        let strategy = Date.ISO8601FormatStyle(timeZone: .gmt)
+            .year().month().day()
+        return try? Date(raw, strategy: strategy)
+    }
+}
+
+public enum ScheduleSections {
+    /// Wraps a CollectionItem<Meeting> list into month-grouped sections,
+    /// preserving the descending-by-id ordering (lexicographic on YYYY-MM-DD
+    /// = chronological) for both sections and items inside. Items whose IDs
+    /// don't parse as ISO dates collapse into a single trailing "Other"
+    /// section, matching the web's `groupByMonth` permissive behaviour.
+    public static func groupByMonth(
+        _ items: [CollectionItem<Meeting>],
+        locale: Locale = .current
+    ) -> [MonthSection] {
+        let sorted = items.sorted { $0.id > $1.id }
+        var seen: Set<String> = []
+        var ordered: [MonthSection] = []
+        for item in sorted {
+            let title = ShortDateFormatter.monthYear(fromISO8601: item.id, locale: locale)
+                ?? "Other"
+            if seen.insert(title).inserted {
+                ordered.append(MonthSection(title: title, items: []))
+            }
+            ordered[ordered.count - 1].items.append(item)
+        }
+        return ordered
+    }
+}
+
+public struct MonthSection: Sendable, Equatable {
+    public let title: String
+    public var items: [CollectionItem<Meeting>]
+
+    public init(title: String, items: [CollectionItem<Meeting>]) {
+        self.title = title
+        self.items = items
+    }
 }
