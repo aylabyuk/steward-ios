@@ -1,0 +1,39 @@
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+
+# App packaging
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+
+# CocoaPods / Carthage (defensive — not in use)
+Pods/
+Carthage/Build/
+
+# fastlane (added later)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Local secrets / config
+*.xcconfig.local
+Local.xcconfig
+
+# macOS
+.DS_Store
+
+# Claude local
+.claude/settings.local.json
