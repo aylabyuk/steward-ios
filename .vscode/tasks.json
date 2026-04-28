@@ -1,0 +1,118 @@
+{
+  "version": "2.0.0",
+  "// Tasks": "Wrappers around the xcodebuild / xcrun simctl / swift test commands we've been running by hand. Cmd-Shift-B picks the default ('Build app target'). All other tasks are reachable via Cmd-Shift-P → 'Tasks: Run Task'.",
+  "tasks": [
+    {
+      "label": "Build app target",
+      "type": "shell",
+      "command": "xcodebuild build -project steward-ios.xcodeproj -scheme steward-ios -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ./build",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$swiftc"
+      ],
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      }
+    },
+    {
+      "label": "Test (Swift Package — fast)",
+      "type": "shell",
+      "command": "swift test",
+      "options": {
+        "cwd": "${workspaceFolder}/LocalPackages/StewardCore"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$swiftc"
+      ],
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      }
+    },
+    {
+      "label": "Test (iOS target via xcodebuild)",
+      "type": "shell",
+      "command": "xcodebuild test -project steward-ios.xcodeproj -scheme steward-ios -destination 'platform=iOS Simulator,name=iPhone 17 Pro'",
+      "group": "test",
+      "problemMatcher": [
+        "$swiftc"
+      ]
+    },
+    {
+      "label": "Install + launch (clean signin)",
+      "type": "shell",
+      "command": "xcrun simctl uninstall booted ca.thevincistudios.steward-ios; xcrun simctl install booted ./build/Build/Products/Debug-iphonesimulator/steward-ios.app && SIMCTL_CHILD_USE_EMULATOR=1 SIMCTL_CHILD_EMULATOR_HOST=127.0.0.1 xcrun simctl launch booted ca.thevincistudios.steward-ios",
+      "dependsOn": [
+        "Build app target"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Install + launch (auto-signin as bishop)",
+      "type": "shell",
+      "command": "xcrun simctl terminate booted ca.thevincistudios.steward-ios; xcrun simctl install booted ./build/Build/Products/Debug-iphonesimulator/steward-ios.app && SIMCTL_CHILD_USE_EMULATOR=1 SIMCTL_CHILD_EMULATOR_HOST=127.0.0.1 SIMCTL_CHILD_AUTO_SIGNIN_BISHOP=1 xcrun simctl launch booted ca.thevincistudios.steward-ios",
+      "dependsOn": [
+        "Build app target"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Screenshot — light",
+      "type": "shell",
+      "command": "xcrun simctl ui booted appearance light && sleep 1 && xcrun simctl io booted screenshot /tmp/steward-light.png && open /tmp/steward-light.png",
+      "problemMatcher": []
+    },
+    {
+      "label": "Screenshot — dark",
+      "type": "shell",
+      "command": "xcrun simctl ui booted appearance dark && sleep 1 && xcrun simctl io booted screenshot /tmp/steward-dark.png && open /tmp/steward-dark.png",
+      "problemMatcher": []
+    },
+    {
+      "label": "Wipe app (sign out)",
+      "type": "shell",
+      "command": "xcrun simctl terminate booted ca.thevincistudios.steward-ios; xcrun simctl uninstall booted ca.thevincistudios.steward-ios",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Firebase emulators (web repo, background)",
+      "type": "shell",
+      "command": "pnpm emulators",
+      "options": {
+        "cwd": "/Users/oriel/projects/steward"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Resolve SPM packages",
+      "type": "shell",
+      "command": "xcodebuild -resolvePackageDependencies -project steward-ios.xcodeproj -scheme steward-ios",
+      "problemMatcher": []
+    },
+    {
+      "label": "Print emulator host",
+      "type": "shell",
+      "command": "./scripts/print-emulator-host.sh",
+      "problemMatcher": []
+    }
+  ]
+}

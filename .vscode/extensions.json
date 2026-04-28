@@ -1,0 +1,6 @@
+{
+  "// Why these": "Just the bare minimum to make Swift + iOS productive in VS Code. Add more on demand; keeping the list short means new contributors aren't drowned in 'must install' popups when they open the workspace.",
+  "recommendations": [
+    "swiftlang.swift-vscode"
+  ]
+}

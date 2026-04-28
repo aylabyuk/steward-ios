@@ -1,0 +1,61 @@
+{
+  "// Swift / SourceKit-LSP": "The Swift extension auto-detects the toolchain via xcode-select, so we don't pin swift.path. The package-based code (LocalPackages/StewardCore) gets full LSP. The app target's iOS-specific files (Firebase, AuthenticationServices) index correctly because xcodebuild has already resolved them — see tasks.json: Resolve packages, run that once after a clean checkout.",
+  "swift.disableSwiftPMIntegration": false,
+  "swift.path": "",
+  "swift.diagnosticsCollection": "keepSwiftServer",
+  "lldb.suppressUpdateNotifications": true,
+
+  "// Hide build artefacts from search / explorer": "These dirs are gitignored and exist only at build time; including them in search results / file pickers wastes time.",
+  "search.exclude": {
+    "**/build": true,
+    "**/.build": true,
+    "**/DerivedData": true,
+    "**/.swiftpm": true,
+    "**/Pods": true,
+    "**/*.xcodeproj/xcuserdata": true
+  },
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/build": true,
+    "**/.build": true,
+    "**/DerivedData": true,
+    "**/.swiftpm": true,
+    "**/*.xcodeproj/xcuserdata": true
+  },
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.build/**": true,
+    "**/DerivedData/**": true,
+    "**/.swiftpm/**": true
+  },
+
+  "// Editor — match the existing codebase": "Two-space indent everywhere except project.pbxproj (tab-indented Apple-style).",
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "[swift]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": false
+  },
+  "[json]": {
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "editor.tabSize": 2,
+    "editor.wordWrap": "on"
+  },
+  "[plist]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": false
+  },
+
+  "files.associations": {
+    "*.entitlements": "xml",
+    "*.xcconfig": "ini",
+    "Package.swift": "swift",
+    "Package.resolved": "json"
+  },
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}

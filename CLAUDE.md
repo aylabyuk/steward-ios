@@ -13,6 +13,23 @@ The full implementation plan, phase breakdown, App Store compliance checklist, a
 
 **Read the plan before doing architectural work.** The CLAUDE.md only captures repo-level facts; the plan captures the cross-system context (web → iOS migration, Firebase backend reuse, Twilio Conversations REST/WebSocket strategy, Apple compliance gates).
 
+## Editor: hybrid VS Code + Xcode
+
+Day-to-day editing happens in **VS Code** (Claude Code attached) — Xcode stays open in the background for the things Apple's tooling does best. The `.vscode/` folder is committed and configures both halves:
+
+- `.vscode/extensions.json` — recommends `swiftlang.swift-vscode` (SourceKit-LSP + LLDB). VS Code prompts to install on first open.
+- `.vscode/settings.json` — hides `build/`, `.build/`, `DerivedData/`, `xcuserdata/` from explorer + search; pins file associations (`*.entitlements` → XML, `Package.resolved` → JSON).
+- `.vscode/tasks.json` — wraps the `xcodebuild` / `xcrun simctl` / `swift test` commands into named tasks. Defaults: ⌘⇧B = Build app target, test runner = `swift test` for StewardCore. Other tasks: install + launch with/without auto-signin, light/dark screenshots, wipe app (sign out), start Firebase emulators, resolve SPM packages, print emulator host.
+- `.vscode/launch.json` — LLDB attach config to debug the running simulator app + a launch config for StewardCore tests with the debugger.
+
+**What stays in Xcode:**
+- SwiftUI Previews — VS Code has no equivalent. Pop into Xcode for a quick render pass when iterating on UI.
+- Capabilities (Sign In with Apple, Push, etc.), scheme env-var management, and signing/team settings — Xcode's UI is lower-friction. (We've also hand-edited `project.pbxproj` for these tonight; that path stays open.)
+- Asset Catalog visual editor — plain text works for `.xcassets/*/Contents.json` but Xcode is faster.
+- Storyboards / xibs — n/a here, the project is SwiftUI-only.
+
+**Source-of-truth note:** the project uses `PBXFileSystemSynchronizedRootGroup` (Xcode 16+ synced folders), so files saved in VS Code show up in Xcode automatically and vice versa. No manual "add to project" step.
+
 ## Building & running
 
 Standard Xcode 26 app project — no workspace, no Pods, no `Package.swift`. Firebase SDK gets added later through Xcode's `File ▸ Add Package Dependencies…` UI.

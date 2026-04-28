@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "// Debug configs": "LLDB attach to a running simulator process. To use: launch the app via the 'Install + launch' task, then run 'Attach to running simulator app'. Breakpoints set in VS Code will resolve once the symbols catch up.",
+  "configurations": [
+    {
+      "name": "Attach to running simulator app",
+      "type": "lldb",
+      "request": "attach",
+      "program": "${workspaceFolder}/build/Build/Products/Debug-iphonesimulator/steward-ios.app/steward-ios",
+      "waitFor": false,
+      "stopOnEntry": false
+    },
+    {
+      "name": "Run StewardCore tests with debugger",
+      "type": "lldb",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/LocalPackages/StewardCore",
+      "program": "${workspaceFolder}/LocalPackages/StewardCore/.build/debug/StewardCorePackageTests.xctest",
+      "args": [],
+      "preLaunchTask": "Test (Swift Package — fast)"
+    }
+  ]
+}
