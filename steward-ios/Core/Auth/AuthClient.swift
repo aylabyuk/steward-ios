@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import StewardCore
 
 #if canImport(FirebaseAuth)
 import FirebaseAuth
@@ -51,30 +50,15 @@ final class AuthClient {
     }
 
     /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
-    /// `ASWebAuthenticationSession` and reaches the real Google OAuth
-    /// flow in production. **In DEBUG builds the button always
-    /// short-circuits through email/password sign-in** because
-    /// Firebase Auth iOS's `OAuthProvider.getCredentialWith` doesn't
-    /// reliably honor `useEmulator(...)` — the handler page either
-    /// dead-ends on `about:blank` or sends the user to real Google
-    /// despite the emulator flag. Real Google OAuth against the
-    /// emulator is meaningless anyway, so this trades a config
-    /// dependency (`USE_EMULATOR=1`) for an unconditional dev path.
-    /// If the emulator isn't running, sign-in fails loudly with
-    /// "Network error" rather than silently sending you to real
-    /// Google — much easier to debug. The emulator auto-creates
-    /// accounts on first sign-in, so this lands as the seeded
-    /// `bishop@e2e.local` user without any password setup.
+    /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is
+    /// set the SDK redirects to the emulator's hosted fake account
+    /// chooser at `http://{host}:9099/emulator/auth/handler`. Same UX
+    /// the web app gets in emulator mode — no real Google round-trip.
+    /// The ATS exceptions in `Info.plist` cover `localhost`, `127.0.0.1`,
+    /// and `0.0.0.0` so the handler page loads regardless of which one
+    /// the emulator binds to.
     func signInWithGoogle() async {
         do {
-            #if DEBUG
-            _ = try await Auth.auth().signIn(
-                withEmail: "bishop@e2e.local",
-                password: "test1234"
-            )
-            self.lastError = nil
-            return
-            #else
             let provider = OAuthProvider(providerID: "google.com")
             let credential = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthCredential, Error>) in
                 provider.getCredentialWith(nil) { credential, error in
@@ -89,7 +73,6 @@ final class AuthClient {
             }
             _ = try await Auth.auth().signIn(with: credential)
             self.lastError = nil
-            #endif
         } catch {
             self.lastError = error
         }
