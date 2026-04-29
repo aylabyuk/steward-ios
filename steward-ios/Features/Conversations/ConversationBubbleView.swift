@@ -62,11 +62,11 @@ struct ConversationBubbleView: View {
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
     }
 
-    /// Stack of small chips below the bubble — one per emoji that
-    /// has at least one reaction. Tap a chip to toggle the viewer's
-    /// own reaction with that emoji. The chip the viewer has
-    /// already reacted with renders with a tinted ring so they can
-    /// see their participation at a glance.
+    /// Stack of small chips that overlap the bottom of the bubble —
+    /// Messenger-style. One per emoji that has at least one reaction.
+    /// Tap a chip to toggle the viewer's reaction with that emoji.
+    /// The chip the viewer has already reacted with renders with a
+    /// tinted ring so they can see their participation at a glance.
     private var reactionChips: some View {
         HStack(spacing: 4) {
             ForEach(message.reactions.orderedEntries, id: \.emoji) { entry in
@@ -86,7 +86,11 @@ struct ConversationBubbleView: View {
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(
-                        mineReaction ? Color.dangerSoft : Color.parchment,
+                        // Frosted material reads cleanly on top of
+                        // either bubble fill (bordeaux for mine /
+                        // parchment-2 for theirs); a flat color was
+                        // disappearing into one or the other.
+                        .regularMaterial,
                         in: Capsule()
                     )
                     .overlay(
@@ -95,12 +99,19 @@ struct ConversationBubbleView: View {
                             lineWidth: 0.5
                         )
                     )
+                    .shadow(color: Color.black.opacity(0.06), radius: 1.5, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(reactionAccessibilityLabel(emoji: entry.emoji, count: entry.identities.count, mine: mineReaction))
             }
         }
-        .padding(.top, 2)
+        // Negative top padding lifts the chips up so they overlap
+        // the bottom-trailing corner of the bubble — matches the
+        // Messenger / iMessage convention of "reactions hang off the
+        // edge". The shadow + frosted fill let them visually float.
+        .padding(.top, -10)
+        .padding(mine ? .trailing : .leading, Spacing.s3)
+        .zIndex(1)
     }
 
     private func reactionAccessibilityLabel(emoji: String, count: Int, mine: Bool) -> String {
