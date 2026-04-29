@@ -484,20 +484,21 @@ private struct SlotRow: View {
     /// Tap target on the assignee name — opens the chat sheet. nil
     /// disables the tap (used for previews / unit-test snapshots).
     var onChat: (() -> Void)? = nil
-    /// Left-swipe-revealed remove action. nil disables the swipe (used
-    /// for empty rows + previews). Filled rows always pass this; the
-    /// parent decides whether to confirm-then-delete or delete
-    /// straight through based on status.
+    /// Long-press → contextMenu "Remove" action. nil hides the menu
+    /// item (used for empty rows + previews). Filled rows always
+    /// pass this; the parent decides whether to confirm-then-delete
+    /// or delete straight through based on status.
     var onDelete: (() -> Void)? = nil
 
     var body: some View {
-        if let onDelete {
-            SwipeToDeleteRow(onDelete: onDelete) {
-                rowContent
+        rowContent
+            .contextMenu {
+                if let onDelete {
+                    Button(role: .destructive, action: onDelete) {
+                        Label("Remove from schedule", systemImage: "trash")
+                    }
+                }
             }
-        } else {
-            rowContent
-        }
     }
 
     private var rowContent: some View {

@@ -88,10 +88,12 @@ struct ScheduleView: View {
                     status: pending.status,
                     kind: pending.kind,
                     onConfirm: {
-                        pendingDelete = nil
+                        // The sheet's environment `dismiss()` will
+                        // clear `pendingDelete` automatically since
+                        // it's bound to `.sheet(item:)`. The parent
+                        // only owns the side-effect: the actual write.
                         Task { await performDelete(pending) }
-                    },
-                    onCancel: { pendingDelete = nil }
+                    }
                 )
             }
             .alert(

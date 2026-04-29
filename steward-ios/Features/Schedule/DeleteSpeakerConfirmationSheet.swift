@@ -11,9 +11,13 @@ struct DeleteSpeakerConfirmationSheet: View {
     let speakerName: String
     let status: InvitationStatus
     let kind: SlotKind
+    /// Fires when the bishop has typed the matching name and tapped
+    /// the destructive button. The sheet dismisses itself
+    /// immediately after — the parent only handles the actual
+    /// Firestore write, not the presentation lifecycle.
     let onConfirm: () -> Void
-    let onCancel: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var typedName: String = ""
     @FocusState private var nameFieldFocused: Bool
 
@@ -44,7 +48,7 @@ struct DeleteSpeakerConfirmationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button("Cancel") { dismiss() }
                         .tint(Color.walnut)
                 }
             }
@@ -109,6 +113,7 @@ struct DeleteSpeakerConfirmationSheet: View {
         VStack(spacing: Spacing.s2) {
             Button(role: .destructive) {
                 onConfirm()
+                dismiss()
             } label: {
                 Text("Remove \(speakerName)")
                     .font(.bodyEmphasis)
