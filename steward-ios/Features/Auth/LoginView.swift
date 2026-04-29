@@ -118,10 +118,18 @@ struct LoginView: View {
                     .tracking(1.2)
                     .foregroundStyle(Color.walnut3)
 
-                Button("Sign in as bishop@e2e.local", action: signInAsBishop)
-                    .buttonStyle(.glass)
-                    .tint(Color.brass)
-                    .disabled(isSubmitting)
+                Button(action: signInAsBishop) {
+                    // `Text(verbatim:)` opts out of SwiftUI's automatic
+                    // email/URL linkification — without it, iOS treats
+                    // `bishop@e2e.local` as a tappable mailto: link and
+                    // intercepts taps on that range, which fails on the
+                    // simulator (no Mail app) with LSApplicationWorkspace
+                    // error 115 instead of firing the button action.
+                    Text(verbatim: "Sign in as bishop@e2e.local")
+                }
+                .buttonStyle(.glass)
+                .tint(Color.brass)
+                .disabled(isSubmitting)
             }
             .padding(.top, Spacing.s2)
         }
