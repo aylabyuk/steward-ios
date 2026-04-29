@@ -5,9 +5,12 @@ import Testing
 /// Pure port of the web's `buildMessagePermissions` at
 /// `src/features/invitations/utils/messageActions.ts:59-104`. The two
 /// load-bearing rules are: (1) only the last `RECENT_EDITABLE_WINDOW`
-/// messages are deletable / editable, and (2) the 30-minute clock
-/// from `dateCreated` overrides the count-based window so older
-/// messages can't be retracted even if they're still in-window.
+/// messages are deletable / editable, and (2) the 24-hour clock from
+/// `dateCreated` overrides the count-based window so older messages
+/// can't be retracted even if they're still in-window. The window
+/// previously sat at 30 min; iOS extended it to 24h to cover
+/// "noticed mistake later in the day" while keeping the recent-N cap
+/// as the structural guard against deep-history rewriting.
 
 @Suite("MessagePermissions — when delete + edit affordances appear on a message")
 struct MessagePermissionsTests {
@@ -66,12 +69,20 @@ struct MessagePermissionsTests {
         #expect(perms.canDelete(bishopMsg) == false)
     }
 
-    @Test("A message older than 30 minutes is not deletable, even within the recent window")
-    func windowExpiry() {
-        let m = msg(sid: "a", author: bishop, ageMinutes: 31)
+    @Test(
+        "Window boundary — within 24h is deletable, past 24h is not (even within the recent-N window)",
+        arguments: [
+            (label: "5 min after — easy delete",          ageMinutes: 5,            canDelete: true),
+            (label: "23h 59m — last minute before expiry", ageMinutes: 23 * 60 + 59, canDelete: true),
+            (label: "24h 01m — just past expiry",          ageMinutes: 24 * 60 + 1,  canDelete: false),
+            (label: "25h — solidly past expiry",           ageMinutes: 25 * 60,      canDelete: false),
+        ]
+    )
+    func windowBoundary(label: String, ageMinutes: Int, canDelete: Bool) {
+        let m = msg(sid: "a", author: bishop, ageMinutes: ageMinutes)
         let perms = MessagePermissions.build(currentIdentity: bishop, messages: [m], now: now)
-        #expect(perms.canDelete(m) == false)
-        #expect(perms.canEdit(m) == false)
+        #expect(perms.canDelete(m) == canDelete, "\(label): canDelete should be \(canDelete)")
+        #expect(perms.canEdit(m) == canDelete, "\(label): canEdit should also be \(canDelete) (same window)")
     }
 
     @Test("Past the recent-N window, delete is blocked even if the message is fresh")

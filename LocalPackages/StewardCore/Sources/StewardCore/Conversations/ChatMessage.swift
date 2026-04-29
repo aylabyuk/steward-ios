@@ -56,10 +56,14 @@ public struct ChatMessage: Sendable, Equatable, Hashable, Identifiable {
     /// posts status-change notices (`kind: status-change`), and the
     /// initial invitation message itself is tagged (`kind:
     /// invitation`). Structural messages can't be edited or deleted.
+    /// iOS-only: `messageDeleted` (`kind: message-deleted`) is the
+    /// tombstone posted in place of a deleted bubble — see
+    /// `docs/web-deviations.md`.
     public enum Attributes: Sendable, Equatable, Hashable {
         case response(answer: String, reason: String?)
         case invitation
         case statusChange(status: String)
+        case messageDeleted
     }
 }
 
@@ -74,6 +78,7 @@ extension ChatMessage.Attributes {
             if kind == "status-change", let status = raw["status"] as? String {
                 return .statusChange(status: status)
             }
+            if kind == "message-deleted" { return .messageDeleted }
         }
         if let answer = raw["responseType"] as? String, answer == "yes" || answer == "no" {
             let reason = raw["reason"] as? String
@@ -87,7 +92,7 @@ extension ChatMessage.Attributes {
     /// `MessagePermissions` blocks edit/delete on them.
     public var isStructural: Bool {
         switch self {
-        case .response, .invitation, .statusChange: return true
+        case .response, .invitation, .statusChange, .messageDeleted: return true
         }
     }
 }

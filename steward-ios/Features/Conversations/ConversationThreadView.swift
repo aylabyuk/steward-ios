@@ -18,6 +18,11 @@ struct ConversationThreadView: View {
     let firstUnreadIndex: Int?
     let readHorizonIndex: Int?
     let loading: Bool
+    /// Predicates derived from `MessagePermissions.build(...)` and
+    /// the per-message delete handler. Default "never deletable" keeps
+    /// loading / empty states + previews safe.
+    var canDelete: (ChatMessage) -> Bool = { _ in false }
+    var onDelete: (ChatMessage) -> Void = { _ in }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -76,7 +81,9 @@ struct ConversationThreadView: View {
         case let .group(group):
             ConversationGroupView(
                 group: group,
-                readHorizonIndex: readHorizonIndex
+                readHorizonIndex: readHorizonIndex,
+                canDelete: canDelete,
+                onDelete: onDelete
             )
         }
     }

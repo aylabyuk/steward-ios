@@ -19,8 +19,12 @@ public enum MessagePermissions {
     public static let recentEditableWindow: Int = 5
 
     /// Hard expiry from `dateCreated` — past this, both affordances
-    /// hide. Keeps the audit trail stable for older context.
-    public static let editDeleteWindowSeconds: TimeInterval = 30 * 60
+    /// hide. iOS uses 24h (web previously sat at 30 min — see
+    /// `docs/web-deviations.md`). The longer window covers "noticed
+    /// the mistake later in the day"; the recent-N cap above is the
+    /// structural guard that prevents deep-history rewriting even
+    /// inside the window.
+    public static let editDeleteWindowSeconds: TimeInterval = 24 * 60 * 60
 
     public struct Predicates: Sendable {
         public let canDelete: @Sendable (ChatMessage) -> Bool

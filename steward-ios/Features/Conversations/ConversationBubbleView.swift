@@ -13,6 +13,13 @@ struct ConversationBubbleView: View {
     /// asymmetry that makes a stack of consecutive messages read as a
     /// single thought.
     let position: Position
+    /// True when the current viewer is allowed to delete this message
+    /// (within the 24h window + last-5 cap, per `MessagePermissions`).
+    /// Drives whether a long-press contextMenu attaches at all — we
+    /// don't want a long-press to steal the gesture and then show
+    /// nothing.
+    var canDelete: Bool = false
+    var onDelete: () -> Void = {}
 
     enum Position { case single, first, middle, last }
 
@@ -24,16 +31,7 @@ struct ConversationBubbleView: View {
                     .tracking(1.2)
                     .foregroundStyle(responseLabelColor)
             }
-            Text(message.body)
-                .font(.bodyDefault)
-                .foregroundStyle(textColor)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, Spacing.s3)
-                .padding(.vertical, Spacing.s2 + 2)
-                .background(bubbleBackground)
-                .overlay(bubbleOverlay)
-                .clipShape(bubbleShape)
-                .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
+            bubble
             if message.wasEdited {
                 Text("Edited")
                     .font(.monoMicro)
@@ -42,6 +40,33 @@ struct ConversationBubbleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+    }
+
+    @ViewBuilder
+    private var bubble: some View {
+        let base = Text(message.body)
+            .font(.bodyDefault)
+            .foregroundStyle(textColor)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, Spacing.s3)
+            .padding(.vertical, Spacing.s2 + 2)
+            .background(bubbleBackground)
+            .overlay(bubbleOverlay)
+            .clipShape(bubbleShape)
+            .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
+        if canDelete {
+            base
+                .contextMenu {
+                    Button(role: .destructive) {
+                        onDelete()
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .accessibilityHint("Delete this message")
+                }
+        } else {
+            base
+        }
     }
 
     private var bubbleShape: some Shape {

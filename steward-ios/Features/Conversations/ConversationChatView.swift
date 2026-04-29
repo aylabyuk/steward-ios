@@ -40,13 +40,19 @@ struct ConversationChatView: View {
             )
             Divider()
             if let observer {
+                let permissions = MessagePermissions.build(
+                    currentIdentity: observer.identity,
+                    messages: observer.messages
+                )
                 ConversationThreadView(
                     messages: observer.messages,
                     currentIdentity: observer.identity,
                     authors: observer.authors,
                     firstUnreadIndex: observer.firstUnreadIndex,
                     readHorizonIndex: observer.readHorizonIndex,
-                    loading: observer.loading
+                    loading: observer.loading,
+                    canDelete: permissions.canDelete,
+                    onDelete: handleDelete
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 TypingIndicatorView(
@@ -197,6 +203,42 @@ struct ConversationChatView: View {
                 applyError = "Couldn't update status — \(error.localizedDescription)"
             }
         }
+    }
+
+    /// Delete a message. Mirrors `BubbleActions.tsx` on the web — the
+    /// permission check is already at the contextMenu (gated by
+    /// `MessagePermissions.canDelete`), so this just runs the two
+    /// side-effects: remove the message from Twilio (which fans out
+    /// `messageRemoved` to every other client) and post a tombstone
+    /// system notice in its place. Tombstone is iOS-only — see
+    /// `docs/web-deviations.md`.
+    private func handleDelete(_ message: ChatMessage) {
+        guard let observer else { return }
+        let conversation = observer.conversation
+        let removedBy = bishopDisplayName
+        Task {
+            do {
+                try await observer.remove(messageSid: message.sid)
+                await InvitationStatusMirror.postMessageDeletedNotice(
+                    conversation: conversation,
+                    removedBy: removedBy
+                )
+            } catch {
+                applyError = "Couldn't delete the message — \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private var bishopDisplayName: String? {
+        if let displayName = auth.displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           displayName.isEmpty == false {
+            return displayName
+        }
+        if let email = auth.email?.trimmingCharacters(in: .whitespacesAndNewlines),
+           email.isEmpty == false {
+            return email
+        }
+        return nil
     }
 
     private func handleSend(_ body: String) async {

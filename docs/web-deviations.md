@@ -427,3 +427,50 @@ bishop needs.
 
 **iOS code**:
 `steward-ios/Features/Conversations/InvitationStatusBannerView.swift`.
+
+### Message deletion: 24h window + tombstone notice
+
+**iOS**: Long-pressing your own bubble surfaces a `Delete`
+context-menu action when `MessagePermissions.canDelete(...)` is
+true — the predicate gates on the same recent-5 cap as the web
+plus a 24-hour cutoff (up from 30 minutes). When the bishop
+confirms, the message is removed from Twilio and a centered
+system notice replaces it: "Message removed by Bishop John ·
+Apr 28." The tombstone is itself a structural message
+(`kind: "message-deleted"`) so it can never be deleted.
+
+**PWA**: `BubbleActions.tsx` long-press menu calls
+`messageMutations.ts:removeMessage()`, which calls Twilio's
+`message.remove()` and posts no follow-up. The bubble silently
+disappears from the timeline; the speaker sees a gap with no
+indication of what happened.
+
+**Why two deviations**:
+- *24h vs 30 min* — the original 30-minute window was tight for
+  bishopric workflows where mistakes are often noticed later in
+  the day. 24h covers "I just realized I sent the wrong date"
+  without enabling rewriting last week's history. The recent-5
+  cap is the structural guard that prevents scrolling deep to
+  remove a specific older quote. The web's
+  `EDIT_DELETE_WINDOW_MS` is bumped in lockstep so cross-platform
+  permission stays consistent.
+- *Tombstone vs silent removal* — the conversation is the record
+  of communication between the bishopric and a speaker who may
+  not return to the app for days. A silent gap is confusing and
+  feels like manipulation; a short attribution line preserves
+  the timeline and signals that something was acted on. Adding
+  the tombstone on the web is a follow-up; iOS leads.
+
+**iOS code**:
+- `LocalPackages/StewardCore/Sources/StewardCore/Conversations/MessagePermissions.swift`
+  (24h constant);
+- `LocalPackages/StewardCore/Sources/StewardCore/Conversations/DeletedMessageNotice.swift`
+  (pure copy generator, parameterized tests in
+  `DeletedMessageNoticeTests.swift`);
+- `steward-ios/Features/Conversations/ConversationBubbleView.swift`
+  (`.contextMenu` with `Button(role: .destructive)`, gated on
+  `canDelete`);
+- `steward-ios/Core/Firestore/InvitationStatusMirror.swift`
+  (`postMessageDeletedNotice(...)`);
+- `steward-ios/Features/Conversations/ConversationChatView.swift`
+  (`handleDelete(_:)` — observer.remove + tombstone post).

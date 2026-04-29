@@ -16,6 +16,12 @@ struct ConversationGroupView: View {
     /// has read up to. Drives the "Read" receipt under the last mine
     /// bubble (only when the receipt actually applies).
     let readHorizonIndex: Int?
+    /// Predicate the bubble's contextMenu consults to decide whether
+    /// to offer Delete. Defaults to "never" so non-chat callsites
+    /// (previews, snapshot tests) don't accidentally enable the
+    /// affordance.
+    var canDelete: (ChatMessage) -> Bool = { _ in false }
+    var onDelete: (ChatMessage) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: group.mine ? .trailing : .leading, spacing: 2) {
@@ -66,7 +72,9 @@ struct ConversationGroupView: View {
                 ConversationBubbleView(
                     message: message,
                     mine: group.mine,
-                    position: position(for: offset)
+                    position: position(for: offset),
+                    canDelete: canDelete(message),
+                    onDelete: { onDelete(message) }
                 )
             }
         }

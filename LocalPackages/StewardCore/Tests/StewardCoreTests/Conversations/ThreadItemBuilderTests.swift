@@ -188,6 +188,43 @@ struct ThreadItemBuilderTests {
         #expect(status == "confirmed")
     }
 
+    @Test("Message-deleted tombstone renders as a centered system notice with status `deleted`")
+    func messageDeletedTombstoneIsSystemNotice() {
+        let messages = [
+            msg(sid: "a", index: 0, author: bishop, body: "Hi", date: now),
+            msg(
+                sid: "b", index: 1, author: bishop,
+                body: "Message removed by Bishop John \u{00B7} Apr 28.",
+                date: now,
+                attributes: .messageDeleted
+            ),
+            msg(sid: "c", index: 2, author: bishop, body: "Looking forward", date: now),
+        ]
+        let items = ThreadItemBuilder.build(
+            messages: messages,
+            currentIdentity: bishop,
+            authors: authors,
+            firstUnreadIndex: nil,
+            now: now
+        )
+        // [day, group(a), system(b), group(c)] — same shape as status-change.
+        #expect(items.count == 4)
+        guard case let .system(sid, body, status) = items[2] else {
+            Issue.record("expected system notice, got \(items[2])")
+            return
+        }
+        #expect(sid == "b")
+        #expect(body.contains("removed"))
+        #expect(status == "deleted")
+    }
+
+    @Test("`kind: \"message-deleted\"` attribute round-trips through the parser")
+    func parserRoundTripsMessageDeleted() {
+        let attrs = ChatMessage.Attributes.parse(["kind": "message-deleted"])
+        #expect(attrs == .messageDeleted)
+        #expect(attrs?.isStructural == true)
+    }
+
     @Test("Unread divider lands just before the first non-mine message at-or-after the index")
     func unreadDividerBeforeFirstUnread() {
         let messages = [

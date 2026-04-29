@@ -78,6 +78,31 @@ enum InvitationStatusMirror {
         }
     }
 
+    /// Post the tombstone system notice that replaces a deleted bubble.
+    /// iOS deviation from the web — the web silently removes; iOS
+    /// leaves an audit line so the speaker sees who removed what and
+    /// when. Best-effort: a failure leaves the message gone but the
+    /// thread without the tombstone (which is the same as web).
+    static func postMessageDeletedNotice(
+        conversation: TCHConversation,
+        removedBy displayName: String?,
+        on date: Date = Date()
+    ) async {
+        let body = DeletedMessageNotice.body(removedBy: displayName, on: date)
+        let attributes: [String: Any] = [
+            "kind": "message-deleted",
+        ]
+        do {
+            try await sendStructuredMessage(
+                in: conversation,
+                body: body,
+                attributes: attributes
+            )
+        } catch {
+            print("[InvitationStatusMirror] message-deleted tombstone failed: \(error)")
+        }
+    }
+
     private static func sendStructuredMessage(
         in conversation: TCHConversation,
         body: String,

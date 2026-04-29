@@ -60,6 +60,16 @@ public enum ThreadItemBuilder {
                 continue
             }
 
+            // Message-deleted tombstone → centered system notice with
+            // a neutral "deleted" status string. Renders the same
+            // rule|label|rule layout as status-change but in the
+            // walnut-2 fallback tone (see `SystemNoticeView.tint`).
+            if case .messageDeleted = message.attributes {
+                flushGroup()
+                items.append(.system(sid: message.sid, body: message.body, status: "deleted"))
+                continue
+            }
+
             let mine = message.author == currentIdentity
             if !unreadInserted,
                !mine,
