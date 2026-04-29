@@ -51,7 +51,13 @@ enum InvitationStatusMirror {
         kind: SlotKind,
         meetingDate: String
     ) -> String {
+        // Hold the date together by swapping its inner spaces for
+        // non-breaking spaces — without this the SystemNotice wraps
+        // mid-date ("…on Sunday, May" / "10, 2026.") which reads as a
+        // formatting bug. NBSPs make the whole date a single
+        // unbreakable token so the line wraps before "Sunday" instead.
         let when = LetterInterpolator.fullSundayDate(meetingDate)
+            .replacingOccurrences(of: " ", with: "\u{00A0}")
         switch status {
         case .confirmed: return "Assignment confirmed — thank you for \(kind.assigneeAction) on \(when)."
         case .declined:  return "Assignment updated to declined. Thank you for letting us know."
