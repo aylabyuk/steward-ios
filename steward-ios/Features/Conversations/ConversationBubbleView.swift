@@ -31,9 +31,12 @@ struct ConversationBubbleView: View {
     /// state); reactions display read-only.
     var currentIdentity: String? = nil
     /// Fires with the chosen emoji when the viewer toggles a
-    /// reaction (from the bubble's React submenu OR by tapping an
+    /// reaction (from the long-press popover OR by tapping an
     /// existing chip). Parent owns the Twilio write.
     var onToggleReaction: (String) -> Void = { _ in }
+
+    @State private var showingActions: Bool = false
+    @State private var pressing: Bool = false
 
     enum Position { case single, first, middle, last }
 
@@ -118,28 +121,26 @@ struct ConversationBubbleView: View {
             .overlay(bubbleOverlay)
             .clipShape(bubbleShape)
             .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
+            .scaleEffect(pressing ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.18), value: pressing)
         if canReact || canEdit || canDelete {
             base
-                .contextMenu {
-                    if canReact {
-                        reactSubmenu
-                    }
-                    if canEdit {
-                        Button {
-                            onEdit()
-                        } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }
-                        .accessibilityHint("Edit this message")
-                    }
-                    if canDelete {
-                        Button(role: .destructive) {
-                            onDelete()
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        .accessibilityHint("Delete this message")
-                    }
+                .onLongPressGesture(minimumDuration: 0.4, maximumDistance: 16) {
+                    showingActions = true
+                } onPressingChanged: { isPressing in
+                    pressing = isPressing
+                }
+                .popover(isPresented: $showingActions) {
+                    BubbleActionsPopoverContent(
+                        reactions: message.reactions,
+                        currentIdentity: currentIdentity,
+                        canEdit: canEdit,
+                        canDelete: canDelete,
+                        onToggleReaction: onToggleReaction,
+                        onEdit: onEdit,
+                        onDelete: onDelete,
+                        dismiss: { showingActions = false }
+                    )
                 }
         } else {
             base
@@ -150,24 +151,6 @@ struct ConversationBubbleView: View {
     /// no edit-window gate, no same-side rule. Disabled (`false`)
     /// only when the viewer's identity hasn't loaded.
     private var canReact: Bool { currentIdentity != nil }
-
-    /// "React" sub-menu inside the bubble's contextMenu. One button
-    /// per palette emoji; the viewer's existing reactions get a
-    /// checkmark so they read as toggleable rather than additive.
-    private var reactSubmenu: some View {
-        Menu {
-            ForEach(Reactions.palette, id: \.self) { emoji in
-                let mineReaction = currentIdentity.map { message.reactions.includes(emoji: emoji, identity: $0) } ?? false
-                Button {
-                    onToggleReaction(emoji)
-                } label: {
-                    Label(emoji, systemImage: mineReaction ? "checkmark" : "")
-                }
-            }
-        } label: {
-            Label("React", systemImage: "face.smiling")
-        }
-    }
 
     private var bubbleShape: some Shape {
         UnevenRoundedRectangle(
