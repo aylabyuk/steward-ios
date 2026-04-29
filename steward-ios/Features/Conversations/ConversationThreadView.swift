@@ -23,6 +23,9 @@ struct ConversationThreadView: View {
     /// loading / empty states + previews safe.
     var canDelete: (ChatMessage) -> Bool = { _ in false }
     var onDelete: (ChatMessage) -> Void = { _ in }
+    /// Same shape for the Edit affordance.
+    var canEdit: (ChatMessage) -> Bool = { _ in false }
+    var onEdit: (ChatMessage) -> Void = { _ in }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -83,7 +86,9 @@ struct ConversationThreadView: View {
                 group: group,
                 readHorizonIndex: readHorizonIndex,
                 canDelete: canDelete,
-                onDelete: onDelete
+                onDelete: onDelete,
+                canEdit: canEdit,
+                onEdit: onEdit
             )
         }
     }

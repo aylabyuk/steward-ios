@@ -20,6 +20,11 @@ struct ConversationBubbleView: View {
     /// nothing.
     var canDelete: Bool = false
     var onDelete: () -> Void = {}
+    /// True when the current viewer authored this message and is
+    /// still inside the edit window (same gates as delete, plus a
+    /// strict identity match). Edit + Delete coexist when both true.
+    var canEdit: Bool = false
+    var onEdit: () -> Void = {}
 
     enum Position { case single, first, middle, last }
 
@@ -54,15 +59,25 @@ struct ConversationBubbleView: View {
             .overlay(bubbleOverlay)
             .clipShape(bubbleShape)
             .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
-        if canDelete {
+        if canEdit || canDelete {
             base
                 .contextMenu {
-                    Button(role: .destructive) {
-                        onDelete()
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                    if canEdit {
+                        Button {
+                            onEdit()
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .accessibilityHint("Edit this message")
                     }
-                    .accessibilityHint("Delete this message")
+                    if canDelete {
+                        Button(role: .destructive) {
+                            onDelete()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .accessibilityHint("Delete this message")
+                    }
                 }
         } else {
             base

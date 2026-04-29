@@ -25,6 +25,9 @@ struct ConversationChatView: View {
     @State private var isApplying: Bool = false
     @State private var isSending: Bool = false
     @State private var applyError: String?
+    /// Non-nil while the edit-message sheet is presented. Driven by
+    /// `.sheet(item:)` on the chat view.
+    @State private var editing: ChatMessage?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,7 +55,9 @@ struct ConversationChatView: View {
                     readHorizonIndex: observer.readHorizonIndex,
                     loading: observer.loading,
                     canDelete: permissions.canDelete,
-                    onDelete: handleDelete
+                    onDelete: handleDelete,
+                    canEdit: permissions.canEdit,
+                    onEdit: handleEdit
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 TypingIndicatorView(
@@ -87,6 +92,9 @@ struct ConversationChatView: View {
         .onDisappear {
             observer?.detach()
             observer = nil
+        }
+        .sheet(item: $editing) { message in
+            ConversationEditMessageSheet(message: message, onSave: commitEdit)
         }
     }
 
@@ -225,6 +233,32 @@ struct ConversationChatView: View {
                 )
             } catch {
                 applyError = "Couldn't delete the message — \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Open the edit-message sheet. Permission is already gated at
+    /// the bubble's contextMenu (via `MessagePermissions.canEdit`),
+    /// so we can trust the message reference here.
+    private func handleEdit(_ message: ChatMessage) {
+        editing = message
+    }
+
+    /// Apply the bishop's edit. `EditMessageIntent.normalize` filters
+    /// out blank or unchanged proposals so we don't waste a Twilio
+    /// write — when it returns nil, the sheet has already dismissed
+    /// itself and we just bail.
+    private func commitEdit(_ message: ChatMessage, proposed: String) {
+        guard let observer else { return }
+        guard let body = EditMessageIntent.normalize(
+            currentBody: message.body,
+            proposedBody: proposed
+        ) else { return }
+        Task {
+            do {
+                try await observer.updateBody(messageSid: message.sid, body: body)
+            } catch {
+                applyError = "Couldn't edit the message — \(error.localizedDescription)"
             }
         }
     }

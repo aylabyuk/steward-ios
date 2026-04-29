@@ -22,6 +22,10 @@ struct ConversationGroupView: View {
     /// affordance.
     var canDelete: (ChatMessage) -> Bool = { _ in false }
     var onDelete: (ChatMessage) -> Void = { _ in }
+    /// Same shape for the Edit affordance — gated on
+    /// `MessagePermissions.canEdit` upstream.
+    var canEdit: (ChatMessage) -> Bool = { _ in false }
+    var onEdit: (ChatMessage) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: group.mine ? .trailing : .leading, spacing: 2) {
@@ -74,7 +78,9 @@ struct ConversationGroupView: View {
                     mine: group.mine,
                     position: position(for: offset),
                     canDelete: canDelete(message),
-                    onDelete: { onDelete(message) }
+                    onDelete: { onDelete(message) },
+                    canEdit: canEdit(message),
+                    onEdit: { onEdit(message) }
                 )
             }
         }
