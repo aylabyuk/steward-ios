@@ -173,11 +173,17 @@ struct InvitationPreviewView: View {
 
     /// Mark-as-invited path: writes the assignment doc as planned, calls
     /// `sendSpeakerInvitation` (which mints the speakerInvitations doc +
-    /// Twilio Conversation + bishopric participant snapshot) with
-    /// `channels: []` so no email/SMS goes out, then flips status to
-    /// invited and stamps the `invitationId`. If the callable fails after
-    /// the planned doc is written, the bishop sees the row in the
-    /// schedule as planned and can retry.
+    /// Twilio Conversation + bishopric participant snapshot), then flips
+    /// status to invited and stamps the `invitationId`. Channels are
+    /// derived from the contact info the bishop entered: a populated
+    /// phone field opts the draft into `"sms"`, a populated email opts
+    /// it into `"email"`, both empty leaves channels empty (just mints
+    /// the conversation, no outbound dispatch — the "I texted them
+    /// outside the app" path). Mirrors the PWA's send dispatch where
+    /// the function fans out to whichever channels the request asks
+    /// for. If the callable fails after the planned doc is written,
+    /// the bishop sees the row in the schedule as planned and can
+    /// retry.
     private func commitMarkInvited(rendered: RenderedLetter) async {
         saving = true
         saveError = nil
@@ -189,6 +195,7 @@ struct InvitationPreviewView: View {
             let expiresAtMillis = SendSpeakerInvitationRequest.computeExpiresAt(
                 meetingDate: draft.meetingDate
             )
+            let channels = dispatchChannels(for: draft)
 
             switch draft.kind {
             case .speaker:
@@ -201,7 +208,7 @@ struct InvitationPreviewView: View {
                 let req = SendSpeakerInvitationRequest.fresh(
                     draft: draft,
                     speakerId: speakerId,
-                    channels: [],
+                    channels: channels,
                     bodyMarkdown: rendered.bodyMarkdown,
                     footerMarkdown: rendered.footerMarkdown,
                     sentOn: sentOn,
@@ -228,7 +235,7 @@ struct InvitationPreviewView: View {
                 let req = SendSpeakerInvitationRequest.fresh(
                     draft: draft,
                     speakerId: prayerRoleString(),
-                    channels: [],
+                    channels: channels,
                     bodyMarkdown: rendered.bodyMarkdown,
                     footerMarkdown: rendered.footerMarkdown,
                     sentOn: sentOn,
@@ -257,6 +264,23 @@ struct InvitationPreviewView: View {
         case .openingPrayer:  return "opening"
         case .benediction:    return "benediction"
         }
+    }
+
+    /// Build the `channels` list for `sendSpeakerInvitation` based on
+    /// which contact fields the draft has populated. The server's
+    /// `createFreshInvitation` only dispatches a channel when the
+    /// matching contact field is also truthy, so passing both opts the
+    /// function into both fan-outs; passing neither just mints the
+    /// conversation record without sending anything.
+    private func dispatchChannels(for draft: InvitationDraft) -> [String] {
+        var channels: [String] = []
+        if let phone = draft.phone?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
+            channels.append("sms")
+        }
+        if let email = draft.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+            channels.append("email")
+        }
+        return channels
     }
 
     private func popToRoot() {
