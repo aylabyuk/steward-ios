@@ -52,26 +52,29 @@ final class AuthClient {
 
     /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
     /// `ASWebAuthenticationSession` and reaches the real Google OAuth
-    /// flow in production. **In DEBUG builds with the emulator on, we
-    /// short-circuit through email/password sign-in instead** — Firebase
-    /// Auth iOS's `OAuthProvider.getCredentialWith` doesn't reliably
-    /// honor `useEmulator(...)` (the handler page often dead-ends on
-    /// `about:blank` or boots the real Google flow), and real Google
-    /// OAuth is meaningless against the emulator anyway. The emulator
-    /// auto-creates accounts on first sign-in, so this lands as the
-    /// seeded `bishop@e2e.local` user without any password setup.
+    /// flow in production. **In DEBUG builds the button always
+    /// short-circuits through email/password sign-in** because
+    /// Firebase Auth iOS's `OAuthProvider.getCredentialWith` doesn't
+    /// reliably honor `useEmulator(...)` — the handler page either
+    /// dead-ends on `about:blank` or sends the user to real Google
+    /// despite the emulator flag. Real Google OAuth against the
+    /// emulator is meaningless anyway, so this trades a config
+    /// dependency (`USE_EMULATOR=1`) for an unconditional dev path.
+    /// If the emulator isn't running, sign-in fails loudly with
+    /// "Network error" rather than silently sending you to real
+    /// Google — much easier to debug. The emulator auto-creates
+    /// accounts on first sign-in, so this lands as the seeded
+    /// `bishop@e2e.local` user without any password setup.
     func signInWithGoogle() async {
         do {
             #if DEBUG
-            if EmulatorConfig.isEnabled {
-                _ = try await Auth.auth().signIn(
-                    withEmail: "bishop@e2e.local",
-                    password: "test1234"
-                )
-                self.lastError = nil
-                return
-            }
-            #endif
+            _ = try await Auth.auth().signIn(
+                withEmail: "bishop@e2e.local",
+                password: "test1234"
+            )
+            self.lastError = nil
+            return
+            #else
             let provider = OAuthProvider(providerID: "google.com")
             let credential = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthCredential, Error>) in
                 provider.getCredentialWith(nil) { credential, error in
@@ -86,6 +89,7 @@ final class AuthClient {
             }
             _ = try await Auth.auth().signIn(with: credential)
             self.lastError = nil
+            #endif
         } catch {
             self.lastError = error
         }
