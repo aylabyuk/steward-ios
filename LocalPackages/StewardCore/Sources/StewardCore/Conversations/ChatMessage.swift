@@ -151,6 +151,33 @@ public struct MessageGroup: Sendable, Equatable, Hashable, Identifiable {
     public var id: String { key }
 }
 
+extension Array where Element == ChatMessage {
+    /// Merge a fresh batch of messages into this list, keying on
+    /// `sid` and breaking ties in favour of `incoming` (so a
+    /// bulk-fetch returning the latest copy of an edited message
+    /// supersedes the older delegate snapshot). The result is sorted
+    /// by Twilio's monotonic `index`.
+    ///
+    /// Used by `ConversationObserver` on initial load: the
+    /// `messageAdded` delegate can race with our bulk
+    /// `getLastMessages` call during the conversation's initial
+    /// sync. A naïve `messages = recent` overwrite was wiping out
+    /// delegate-pushed messages whenever the bulk fetch landed
+    /// before sync had populated the local cache — symptom: thread
+    /// reads as empty until the user closes and re-opens the chat,
+    /// at which point the next observer hits a fully synced cache.
+    /// Merging instead of overwriting fixes that.
+    public func merged(with incoming: [ChatMessage]) -> [ChatMessage] {
+        var bySid: [String: ChatMessage] = Dictionary(
+            uniqueKeysWithValues: self.map { ($0.sid, $0) }
+        )
+        for message in incoming {
+            bySid[message.sid] = message
+        }
+        return bySid.values.sorted { $0.index < $1.index }
+    }
+}
+
 /// Display metadata for a participant identity. Resolved from the
 /// invitation snapshot (`bishopricParticipants`) + the speaker's
 /// invitation doc + Twilio participant attributes overlay; falls back

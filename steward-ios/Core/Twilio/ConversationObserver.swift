@@ -101,11 +101,35 @@ final class ConversationObserver: NSObject {
             firstUnreadIndex = computeFirstUnreadIndex(participants: participants)
             readHorizonIndex = computeReadHorizon(participants: participants)
             let recent = try await fetchRecentMessages(count: 50)
-            messages = recent
+            // Merge — never overwrite. The `messageAdded` delegate can
+            // race with the bulk fetch during initial sync; a naïve
+            // assignment of an empty `recent` would wipe out cached
+            // messages the delegate already pushed. Pinned by
+            // `ChatMessageMergeTests`.
+            messages = messages.merged(with: recent)
             loading = false
         } catch {
             self.error = error
             loading = false
+        }
+    }
+
+    /// Re-fetch when this conversation's local Twilio cache transitions
+    /// to fully synced. The initial bulk fetch in `loadInitialState`
+    /// can land before the cache has the messages, returning empty;
+    /// once the SDK reports `.all`, the cached history is reachable.
+    /// Merge keeps anything the delegate already pushed.
+    private func handleConversationFullySynced() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let recent = try await self.fetchRecentMessages(count: 50)
+                self.messages = self.messages.merged(with: recent)
+            } catch {
+                // Best-effort: leave whatever messageAdded has pushed
+                // in place. Don't surface the refetch error since the
+                // primary load already flipped `loading` to false.
+            }
         }
     }
 
@@ -276,6 +300,23 @@ extension ConversationObserver: TCHConversationDelegate {
             guard let self else { return }
             let chat = toChatMessage(message)
             self.messages = self.messages.map { $0.sid == chat.sid ? chat : $0 }
+        }
+    }
+
+    nonisolated func conversationsClient(
+        _ client: TwilioConversationsClient,
+        conversation: TCHConversation,
+        synchronizationStatusUpdated status: TCHConversationSynchronizationStatus
+    ) {
+        // Twilio's per-conversation sync runs through .none →
+        // .identifier → .metadata → .all. `getLastMessages` returns
+        // real history only at .all; before that, it can resolve with
+        // whatever fragment is locally cached (often empty on first
+        // open). Re-fetch when we hit .all so the thread isn't stuck
+        // on the empty/loading state.
+        guard status == .all else { return }
+        Task { @MainActor [weak self] in
+            self?.handleConversationFullySynced()
         }
     }
 
