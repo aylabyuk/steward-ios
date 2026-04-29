@@ -34,6 +34,7 @@ struct ConversationChatView: View {
             InvitationStatusBannerView(
                 speaker: speaker,
                 invitation: invitation,
+                kind: kind,
                 membersByUid: membersByUid,
                 currentUserUid: auth.uid,
                 isApplying: isApplying,
@@ -204,6 +205,7 @@ struct ConversationChatView: View {
                     await InvitationStatusMirror.postStatusChangeMessage(
                         conversation: conversation,
                         status: next,
+                        kind: kind,
                         meetingDate: invitation.speakerRef.meetingDate
                     )
                 }

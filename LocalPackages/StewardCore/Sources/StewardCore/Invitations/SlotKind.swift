@@ -40,4 +40,26 @@ public enum SlotKind: String, Sendable, Hashable, Codable {
     public var isPrayer: Bool {
         prayerType != nil
     }
+
+    /// Noun for the assignee in user-facing copy — "speaker" /
+    /// "prayer giver". Used by `BannerView` and
+    /// `InvitationStatusMirror` to phrase status messages so a prayer
+    /// chat doesn't read as speaker-flavoured. iOS deviation — see
+    /// `docs/web-deviations.md`.
+    public var assigneeNoun: String {
+        switch self {
+        case .speaker:                       "speaker"
+        case .openingPrayer, .benediction:   "prayer giver"
+        }
+    }
+
+    /// Action verb describing what the assignee will do at the
+    /// meeting — slots into "thank you for {action} on Sunday…"
+    /// system messages.
+    public var assigneeAction: String {
+        switch self {
+        case .speaker:                       "speaking"
+        case .openingPrayer, .benediction:   "offering the prayer"
+        }
+    }
 }

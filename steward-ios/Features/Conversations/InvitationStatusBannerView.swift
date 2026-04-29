@@ -10,6 +10,7 @@ import StewardCore
 struct InvitationStatusBannerView: View {
     let speaker: Speaker
     let invitation: SpeakerInvitation
+    let kind: SlotKind
     let membersByUid: [String: String]
     let currentUserUid: String?
     let isApplying: Bool
@@ -18,11 +19,11 @@ struct InvitationStatusBannerView: View {
     let onChangeStatus: (InvitationStatus) -> Void
 
     private var bannerResult: BannerView.Result {
-        BannerView.derive(speaker: speaker, invitation: invitation)
+        BannerView.derive(speaker: speaker, invitation: invitation, kind: kind)
     }
 
     private var lastSeenLabel: String? {
-        BannerView.formatLastSeen(invitation.speakerLastSeenAt)
+        BannerView.formatLastSeen(invitation.speakerLastSeenAt, kind: kind)
     }
 
     private var provenanceLabel: String? {

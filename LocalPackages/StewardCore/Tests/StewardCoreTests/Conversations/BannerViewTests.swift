@@ -120,6 +120,33 @@ struct DeriveBannerViewTests {
         )
         #expect(viewNil.tone == .neutral)
     }
+
+    @Test(
+        "Prayer kinds use 'Prayer giver' phrasing instead of 'Speaker' — iOS deviation",
+        arguments: [SlotKind.openingPrayer, .benediction]
+    )
+    func prayerKindsFlipNoun(kind: SlotKind) {
+        let confirmed = BannerView.derive(
+            speaker: speaker(status: "confirmed"),
+            invitation: invitation(),
+            kind: kind
+        )
+        #expect(confirmed.message == "Prayer giver has accepted the assignment")
+
+        let invited = BannerView.derive(
+            speaker: speaker(status: "invited"),
+            invitation: invitation(),
+            kind: kind
+        )
+        #expect(invited.message == "Waiting for prayer giver's reply.")
+
+        let pendingYes = BannerView.derive(
+            speaker: speaker(status: "invited"),
+            invitation: invitation(response: SpeakerInvitation.Response(answer: "yes")),
+            kind: kind
+        )
+        #expect(pendingYes.message.contains("Prayer giver"))
+    }
 }
 
 @Suite("BannerView.statusProvenanceLabel — 'SET MANUALLY BY ORIEL ABSIN · APR 28'")
@@ -240,6 +267,18 @@ struct FormatLastSeenTests {
     @Test("Nil last-seen returns nil — banner just hides the row")
     func nilSeenHides() {
         #expect(BannerView.formatLastSeen(nil, now: now) == nil)
+    }
+
+    @Test(
+        "Prayer kinds say 'Prayer giver last seen' instead of 'Speaker last seen'",
+        arguments: [SlotKind.openingPrayer, .benediction]
+    )
+    func prayerKindFlipsLastSeenNoun(kind: SlotKind) {
+        let live = BannerView.formatLastSeen(iso(secondsAgo: 30), kind: kind, now: now)
+        #expect(live == "Prayer giver is viewing the chat now")
+
+        let stale = BannerView.formatLastSeen(iso(secondsAgo: 5 * 60), kind: kind, now: now)
+        #expect(stale == "Prayer giver last seen · 5 min ago")
     }
 
     @Test("Malformed timestamp returns nil rather than throwing")

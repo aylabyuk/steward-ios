@@ -47,28 +47,30 @@ public enum BannerView {
     public static func derive(
         speaker: Speaker,
         invitation: SpeakerInvitation,
+        kind: SlotKind = .speaker,
         now: Date = Date()
     ) -> Result {
         let status = speaker.status ?? "planned"
         let response = invitation.response
+        let noun = kind.assigneeNoun.capitalizedFirst
 
         if status == "confirmed" {
             return Result(
-                message: "Speaker has accepted the assignment",
+                message: "\(noun) has accepted the assignment",
                 tone: .success,
                 showApply: false
             )
         }
         if status == "declined" {
             return Result(
-                message: "Speaker declined the invitation",
+                message: "\(noun) declined the invitation",
                 tone: .destructive,
                 showApply: false
             )
         }
         if let response, response.answer == "yes", response.acknowledgedAt == nil {
             return Result(
-                message: "Speaker has accepted the assignment, but you need to confirm first.",
+                message: "\(noun) has accepted the assignment, but you need to confirm first.",
                 tone: .pending,
                 showApply: true,
                 applyLabel: "Confirm"
@@ -76,7 +78,7 @@ public enum BannerView {
         }
         if let response, response.answer == "no", response.acknowledgedAt == nil {
             return Result(
-                message: "Speaker has declined. Acknowledge to update the schedule.",
+                message: "\(noun) has declined. Acknowledge to update the schedule.",
                 tone: .destructive,
                 showApply: true,
                 applyLabel: "Acknowledge"
@@ -84,14 +86,14 @@ public enum BannerView {
         }
         if isExpired(invitation.expiresAt, now: now) {
             return Result(
-                message: "Invitation expired before the speaker replied.",
+                message: "Invitation expired before the \(kind.assigneeNoun) replied.",
                 tone: .neutral,
                 showApply: false
             )
         }
         if status == "invited" {
             return Result(
-                message: "Waiting for speaker's reply.",
+                message: "Waiting for \(kind.assigneeNoun)'s reply.",
                 tone: .pending,
                 showApply: false
             )
@@ -171,17 +173,19 @@ public enum BannerView {
     /// unparseable timestamps so callers can hide the row.
     public static func formatLastSeen(
         _ iso8601: String?,
+        kind: SlotKind = .speaker,
         now: Date = Date(),
         locale: Locale = .current
     ) -> String? {
         guard let iso8601, let seenAt = parseISO8601(iso8601) else { return nil }
+        let noun = kind.assigneeNoun.capitalizedFirst
         let ageSeconds = now.timeIntervalSince(seenAt)
         if ageSeconds < 2 * 60 {
-            return "Speaker is viewing the chat now"
+            return "\(noun) is viewing the chat now"
         }
         if ageSeconds < 60 * 60 {
             let mins = Int(ageSeconds.rounded() / 60)
-            return "Speaker last seen · \(mins) min ago"
+            return "\(noun) last seen · \(mins) min ago"
         }
         var calendar = Calendar.current
         calendar.timeZone = .current
@@ -189,11 +193,11 @@ public enum BannerView {
         if sameDay {
             var style = Date.FormatStyle().hour().minute().locale(locale)
             style.timeZone = calendar.timeZone
-            return "Speaker last seen · \(seenAt.formatted(style))"
+            return "\(noun) last seen · \(seenAt.formatted(style))"
         }
         var style = Date.FormatStyle().month(.abbreviated).day().locale(locale)
         style.timeZone = calendar.timeZone
-        return "Speaker last seen · \(seenAt.formatted(style))"
+        return "\(noun) last seen · \(seenAt.formatted(style))"
     }
 
     private static func isExpired(_ iso8601: String?, now: Date) -> Bool {
@@ -211,5 +215,17 @@ public enum BannerView {
         let plain = ISO8601DateFormatter()
         plain.formatOptions = [.withInternetDateTime]
         return plain.date(from: raw)
+    }
+}
+
+private extension String {
+    /// Capitalize only the first character — `assigneeNoun` returns
+    /// lowercase ("speaker" / "prayer giver") so it can slot into
+    /// mid-sentence copy; sentence-leading uses need a single-letter
+    /// uppercase. `String.capitalized` capitalizes every word and
+    /// would turn "prayer giver" into "Prayer Giver" — wrong here.
+    var capitalizedFirst: String {
+        guard let first else { return self }
+        return first.uppercased() + dropFirst()
     }
 }

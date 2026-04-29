@@ -474,3 +474,46 @@ indication of what happened.
   (`postMessageDeletedNotice(...)`);
 - `steward-ios/Features/Conversations/ConversationChatView.swift`
   (`handleDelete(_:)` — observer.remove + tombstone post).
+
+### Chat copy is kind-aware: prayer slots say "prayer giver" / "offering the prayer"
+
+**iOS**: When the bishop opens a chat for an opening or closing
+prayer, the banner reads "Prayer giver has accepted the
+assignment", the heartbeat eyebrow reads "Prayer giver last seen
+· 5 min ago", and the centred system notice posted on Confirm
+reads "Assignment confirmed — thank you for offering the prayer
+on Sunday, May 10, 2026." Same speaker chats keep the existing
+speaker-flavoured copy.
+
+**PWA**: `deriveBannerView` / `formatLastSeen` /
+`statusChangeNotice` are speaker-flavoured for every kind — a
+prayer chat reads "Speaker has accepted the assignment", "Speaker
+last seen", and "thank you for speaking on Sunday…" even when
+the assignee is a prayer giver. The web also renders the
+speaker's quick-action response as "Yes, I can speak." regardless
+of slot kind, which is web-authored and out of scope for this
+iOS deviation (would require a web-side change to the
+speaker-side response action).
+
+**Why**: Bishopric users found "thank you for speaking" jarring
+when chatting with a prayer giver — the wording implied the
+person had committed to a different role than they actually had.
+Static-analysis of `SlotKind` is the easy seam: each call site
+that produces user-visible copy now branches on
+`kind.assigneeNoun` (`"speaker"` / `"prayer giver"`) and
+`kind.assigneeAction` (`"speaking"` / `"offering the prayer"`).
+Decline copy stays kind-agnostic because the existing wording
+("Assignment updated to declined. Thank you for letting us
+know.") didn't reference the role.
+
+**iOS code**:
+- `LocalPackages/StewardCore/Sources/StewardCore/Invitations/SlotKind.swift`
+  (new `assigneeNoun` + `assigneeAction` properties, tested in
+  `SlotKindCopyTests.swift`);
+- `LocalPackages/StewardCore/Sources/StewardCore/Conversations/BannerView.swift`
+  (`derive` + `formatLastSeen` accept a `SlotKind`, default
+  `.speaker` for back-compat with the existing test surface);
+- `steward-ios/Core/Firestore/InvitationStatusMirror.swift`
+  (`bodyFor` + `postStatusChangeMessage` take a `SlotKind`);
+- Call sites updated in `InvitationStatusBannerView` and
+  `ConversationChatView` to pass through the chat's `kind`.

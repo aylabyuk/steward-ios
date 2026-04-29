@@ -41,12 +41,19 @@ enum InvitationStatusMirror {
     /// Body copy mirrors the web at
     /// `statusChangeNotice.ts:14-18`. The meeting date is substituted
     /// in place of "this Sunday" so an old thread reads unambiguously.
+    /// Confirm copy branches on `kind` so prayer chats don't read as
+    /// speaker-flavoured ("thank you for speaking" → "thank you for
+    /// offering the prayer"); decline copy is kind-agnostic.
     /// Returns the empty string for `planned`/`invited` — the web
     /// caller short-circuits before posting in those cases.
-    static func bodyFor(status: InvitationStatus, meetingDate: String) -> String {
+    static func bodyFor(
+        status: InvitationStatus,
+        kind: SlotKind,
+        meetingDate: String
+    ) -> String {
         let when = LetterInterpolator.fullSundayDate(meetingDate)
         switch status {
-        case .confirmed: return "Assignment confirmed — thank you for speaking on \(when)."
+        case .confirmed: return "Assignment confirmed — thank you for \(kind.assigneeAction) on \(when)."
         case .declined:  return "Assignment updated to declined. Thank you for letting us know."
         case .planned, .invited: return ""
         }
@@ -59,10 +66,11 @@ enum InvitationStatusMirror {
     static func postStatusChangeMessage(
         conversation: TCHConversation,
         status: InvitationStatus,
+        kind: SlotKind,
         meetingDate: String
     ) async {
         guard status == .confirmed || status == .declined else { return }
-        let body = bodyFor(status: status, meetingDate: meetingDate)
+        let body = bodyFor(status: status, kind: kind, meetingDate: meetingDate)
         let attributes: [String: Any] = [
             "kind": "status-change",
             "status": status.rawValue,
