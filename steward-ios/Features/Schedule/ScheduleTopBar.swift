@@ -44,12 +44,7 @@ struct ScheduleTopBar: View {
             #endif
             Button("Sign out", role: .destructive, action: auth.signOut)
         } label: {
-            HStack(spacing: 4) {
-                AvatarCircle(photoURL: auth.photoURL, displayName: auth.displayName, email: auth.email)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.onAppBarMuted)
-            }
+            AvatarCircle(photoURL: auth.photoURL, displayName: auth.displayName, email: auth.email)
         }
         .accessibilityLabel("Account menu")
     }

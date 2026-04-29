@@ -1,12 +1,12 @@
 import SwiftUI
 import StewardCore
 
-/// Top-of-sheet banner with status copy + status pills. Mirrors the
-/// web's `InvitationStatusBanner.tsx`. Three distinct rows:
-///   1. Headline message + tone fill (driven by `BannerView.derive`).
-///   2. Optional Apply CTA (when the speaker has replied but the
-///      bishopric hasn't acknowledged).
-///   3. Status pills (`SpeakerStatusPillsView`) for manual override.
+/// Slim status header above the chat thread. iOS deviation from the
+/// web's `InvitationStatusBanner.tsx` — no full-width tone fill, no
+/// dedicated pills row. The tone now lives in the message colour and
+/// the (interactive) `StatusBadge` sitting on the same line; the
+/// banner sits flat on the parchment so the chat owns the rest of
+/// the screen.
 struct InvitationStatusBannerView: View {
     let speaker: Speaker
     let invitation: SpeakerInvitation
@@ -25,20 +25,18 @@ struct InvitationStatusBannerView: View {
         BannerView.formatLastSeen(invitation.speakerLastSeenAt)
     }
 
-    /// Provenance line shown under the pills. Status-aware — flips
-    /// from "INVITED BY..." to "SET MANUALLY BY..." to "FROM REPLY ·
-    /// APPLIED BY..." as the bishopric works through the lifecycle.
     private var provenanceLabel: String? {
         BannerView.statusProvenanceLabel(speaker: speaker, membersByUid: membersByUid)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s2 + 2) {
-            HStack(alignment: .top, spacing: Spacing.s3) {
+        VStack(alignment: .leading, spacing: Spacing.s2) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s3) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(bannerResult.message)
                         .font(.bodyEmphasis)
                         .foregroundStyle(messageColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     if let reason = invitation.response?.reason, !reason.isEmpty {
                         Text("\u{201C}\(reason)\u{201D}")
                             .font(.serifAside)
@@ -51,24 +49,27 @@ struct InvitationStatusBannerView: View {
                             .foregroundStyle(Color.walnut3)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if bannerResult.showApply, let applyLabel = bannerResult.applyLabel {
+                SpeakerStatusPillsView(
+                    current: InvitationStatus(rawString: speaker.status) ?? .planned,
+                    currentStatusSource: speaker.statusSource,
+                    currentStatusSetBy: speaker.statusSetBy,
+                    membersByUid: membersByUid,
+                    currentUserUid: currentUserUid,
+                    onChange: onChangeStatus
+                )
+                .fixedSize()
+            }
+            if bannerResult.showApply, let applyLabel = bannerResult.applyLabel {
+                HStack(spacing: Spacing.s2) {
+                    Spacer(minLength: 0)
                     Button {
                         onApply()
                     } label: {
                         Text(isApplying ? "Applying…" : applyLabel)
-                            .font(.bodySmall)
-                            .foregroundStyle(Color.parchment)
-                            .padding(.horizontal, Spacing.s3)
-                            .padding(.vertical, Spacing.s2)
-                            .background(
-                                Color.bordeaux,
-                                in: RoundedRectangle(cornerRadius: Radius.default, style: .continuous)
-                            )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.glassProminent)
+                    .tint(Color.bordeaux)
                     .disabled(isApplying)
-                    .opacity(isApplying ? 0.6 : 1)
                 }
             }
             if let applyError {
@@ -76,14 +77,6 @@ struct InvitationStatusBannerView: View {
                     .font(.bodySmall)
                     .foregroundStyle(Color.bordeaux)
             }
-            SpeakerStatusPillsView(
-                current: InvitationStatus(rawString: speaker.status) ?? .planned,
-                currentStatusSource: speaker.statusSource,
-                currentStatusSetBy: speaker.statusSetBy,
-                membersByUid: membersByUid,
-                currentUserUid: currentUserUid,
-                onChange: onChangeStatus
-            )
             if let provenanceLabel {
                 Text(provenanceLabel)
                     .font(.monoEyebrow)
@@ -92,8 +85,8 @@ struct InvitationStatusBannerView: View {
             }
         }
         .padding(.horizontal, Spacing.s4)
-        .padding(.vertical, Spacing.s3)
-        .background(toneFill)
+        .padding(.top, Spacing.s2)
+        .padding(.bottom, Spacing.s3)
     }
 
     private var messageColor: Color {
@@ -102,15 +95,6 @@ struct InvitationStatusBannerView: View {
         case .pending:     return Color.brassDeep
         case .destructive: return Color.bordeaux
         case .neutral:     return Color.walnut2
-        }
-    }
-
-    private var toneFill: Color {
-        switch bannerResult.tone {
-        case .success:     return Color.successSoft
-        case .pending:     return Color.brassSoft
-        case .destructive: return Color.dangerSoft
-        case .neutral:     return Color.parchment2
         }
     }
 }

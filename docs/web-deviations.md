@@ -355,3 +355,75 @@ button replaces the PWA's explicit "CLOSE" text button — also no
 `steward-ios/Features/Conversations/ConversationView.swift`,
 pushed via `.navigationDestination(for: ChatPresentation.self)`
 in `steward-ios/Features/Schedule/ScheduleView.swift`.
+
+### Speaker status switcher: `StatusBadge` + `Menu`, not a 4-segment radio strip
+
+**iOS**: The bishop changes a speaker's status from a tappable
+`StatusBadge` sitting inline with the banner message — the
+capsule's tinted fill + border read as a tappable chip on their
+own, so no chevron decoration is needed. Tap opens a native
+`Menu` with
+four labeled options (Confirmed / Invited / Planned / Declined);
+the current status renders a checkmark, "Mark as Declined"
+carries `.destructive` role. Selection still routes through the
+same `StatusConfirmCopy` confirm dialog as the web when the
+transition isn't frictionless. Pure transition gating lives in
+`StewardCore.SpeakerStatusTransition.classify(...)` so the
+friction rules stay testable without SwiftUI.
+
+**PWA**: An always-visible 4-segment radio strip at the top of
+the invitation banner — `SpeakerStatusPills.tsx` renders four
+`role="radio"` buttons in a `grid grid-cols-4`, with the active
+state filled and the inactive states sitting at equal visual
+weight.
+
+**Why**: On iOS, a horizontal 4-cell segmented strip reads as a
+tab bar / view filter, not a state mutator — the convention
+collision is loud. The strip also encoded status three times in
+the same banner (sentence + highlighted segment + tone fill),
+gave `DECLINED` the same visual gravity as `CONFIRMED` one tap
+away, and ate ~36pt + paddings of vertical space at the top of
+every conversation. The native `Menu` pattern is the standard
+iOS idiom for "change a record's state": it removes the tab-bar
+misread, isolates the destructive action via `.destructive`
+button role, reclaims vertical space, and reuses the
+`StatusBadge` already used by the schedule.
+
+**iOS code**:
+`steward-ios/Features/Conversations/SpeakerStatusPillsView.swift`
+(name kept; the embedded view is now a `Menu`, not a pill row).
+Transition gating in
+`LocalPackages/StewardCore/Sources/StewardCore/Conversations/SpeakerStatusTransition.swift`,
+covered by
+`LocalPackages/StewardCore/Tests/StewardCoreTests/Conversations/SpeakerStatusTransitionTests.swift`.
+
+### Conversation banner: flat, compact, no full-bleed tone fill
+
+**iOS**: The invitation status banner sits flat on the chat's
+parchment background — no full-width `toneFill` rectangle. The
+status message and the (interactive) `StatusBadge` menu share a
+single row, so the badge becomes a status indicator *and* the
+edit affordance in the same place. Reason quote, last-seen, and
+provenance lines appear only when their data is present, each on
+their own line below. The Apply CTA (when shown) gets its own
+right-aligned row using `Button(...).buttonStyle(.glassProminent)`
+tinted bordeaux — Liquid Glass for the only true call-to-action
+in the header.
+
+**PWA**: The web's `InvitationStatusBanner.tsx` paints a
+full-width tinted card (success-soft / brass-soft / danger-soft
+/ parchment-2) behind the message, the bordeaux Apply button on
+its right edge, and a stacked pills row below it.
+
+**Why**: With the pills gone, the tone fill carried no extra
+information — `StatusBadge` already conveys status colour, and
+the message text is tone-coloured too. Triple-encoding the same
+fact with a full-bleed background just ate ~30% of the screen
+above the chat. Stripping the fill, baselining the badge with
+the message, and reserving Liquid Glass for the genuine CTA
+turns the banner into a tight ~3-line header that lets the chat
+own the rest of the viewport while keeping every signal the
+bishop needs.
+
+**iOS code**:
+`steward-ios/Features/Conversations/InvitationStatusBannerView.swift`.
