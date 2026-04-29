@@ -513,7 +513,7 @@ private struct SlotRow: View {
                 .frame(width: 36, alignment: .leading)
 
             if let assignee, assignee.isEmpty == false {
-                let block = VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(assignee)
                         .font(.bodyEmphasis)
                         .foregroundStyle(Color.walnut)
@@ -529,13 +529,13 @@ private struct SlotRow: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                if let onChat {
-                    Button(action: onChat) { block }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open conversation with \(assignee)")
-                } else {
-                    block
-                }
+                // `onTapGesture` instead of `Button` — Button greedy-
+                // grabs the press, which suppresses the parent's
+                // `DragGesture` and breaks swipe-to-delete. TapGesture
+                // cooperates: drag wins above threshold, tap below.
+                .onTapGesture { onChat?() }
+                .accessibilityAddTraits(onChat == nil ? [] : .isButton)
+                .accessibilityLabel(onChat == nil ? "" : "Open conversation with \(assignee)")
             } else if let assignKind {
                 AssignSlotButton(kind: assignKind, action: onAssign)
                     .frame(maxWidth: .infinity, alignment: .leading)

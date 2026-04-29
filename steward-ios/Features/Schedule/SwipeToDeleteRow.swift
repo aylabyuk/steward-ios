@@ -29,7 +29,11 @@ struct SwipeToDeleteRow<Content: View>: View {
                 .background(Color.parchment)
                 .contentShape(Rectangle())
                 .offset(x: clampedOffset)
-                .simultaneousGesture(
+                // `.gesture` (not `.simultaneousGesture`) — drag wins
+                // over the inner content's tap once it crosses the
+                // 12pt threshold; below that, the inner tap (chat
+                // open) fires unimpeded.
+                .gesture(
                     DragGesture(minimumDistance: 12)
                         .onChanged { value in
                             // Only horizontal-dominant gestures consume.
@@ -51,15 +55,21 @@ struct SwipeToDeleteRow<Content: View>: View {
                             }
                         }
                 )
-                .onTapGesture {
+                // While latched, a transparent overlay catches taps
+                // and closes the row instead of letting them fall
+                // through to the content's chat tap. iOS Mail does
+                // the same — tap anywhere on the row to dismiss the
+                // swipe action.
+                .overlay {
                     if latched {
-                        // Tap-to-close while latched — only after this
-                        // closes do we re-enable the underlying row's
-                        // tap target.
-                        withAnimation(.easeOut(duration: 0.18)) {
-                            latched = false
-                            dragOffset = 0
-                        }
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    latched = false
+                                    dragOffset = 0
+                                }
+                            }
                     }
                 }
         }
