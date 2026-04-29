@@ -118,7 +118,6 @@ struct DeleteSpeakerConfirmationSheet: View {
                 Text("Remove \(speakerName)")
                     .font(.bodyEmphasis)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.s2 + 2)
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.bordeaux)

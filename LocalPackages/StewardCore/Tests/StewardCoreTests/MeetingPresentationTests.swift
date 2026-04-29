@@ -104,39 +104,6 @@ struct MeetingCardBodyTests {
     }
 }
 
-@Suite("Meeting type badge — what label and tone the schedule row shows")
-struct MeetingTypeBadgeTests {
-
-    @Test("Fast & Testimony Sundays render a brass-toned 'Fast & Testimony' badge")
-    func fastSunday() {
-        let meeting = Meeting(meetingType: "fast")
-        let badge = try? #require(meeting.typeBadge)
-        #expect(badge?.label == "Fast & Testimony")
-        #expect(badge?.tone == .pending) // brass slot
-    }
-
-    @Test(
-        "Stake / general conference Sundays render a bordeaux-toned badge — abbreviated to fit the header on one line, full name lives in the body stamp",
-        arguments: [
-            (type: "stake",   label: "Stake Conf."),
-            (type: "general", label: "General Conf."),
-        ]
-    )
-    func stakeAndGeneral(type: String, label: String) {
-        let badge = Meeting(meetingType: type).typeBadge
-        let unwrapped = try? #require(badge)
-        #expect(unwrapped?.label == label)
-        #expect(unwrapped?.tone == .destructive) // bordeaux slot
-    }
-
-    @Test("Regular and unknown types render no badge — keeps the row visually quiet")
-    func quietRows() {
-        #expect(Meeting(meetingType: "regular").typeBadge == nil)
-        #expect(Meeting(meetingType: nil).typeBadge == nil)
-        #expect(Meeting(meetingType: "future-type").typeBadge == nil)
-    }
-}
-
 @Suite("Schedule date formatting — what date string the user reads on a row")
 struct ShortDateFormatterTests {
 

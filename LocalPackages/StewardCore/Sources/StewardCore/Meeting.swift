@@ -153,29 +153,6 @@ public extension Meeting {
         return "regular"
     }
 
-    /// Type-badge driven by the row context. Regular meetings get no badge
-    /// (the row stays visually quiet); fast / stake / general carry their
-    /// own status tone. Mirrors the web's MobileSundayBlock type tags.
-    ///
-    /// Deviation from the web: stake / general use the abbreviated forms
-    /// "Stake Conf." / "General Conf." — on a phone the full names would
-    /// push the date headline ("May 24") onto two lines. The body stamp
-    /// directly below the badge spells the full name out, so the badge
-    /// only needs to be a quick marker.
-    ///
-    /// Returns `nil` when no badge should be drawn.
-    var typeBadge: (label: String, tone: StatusBadge.Tone)? {
-        switch meetingType {
-        case "fast":
-            return ("Fast & Testimony", .pending)
-        case "stake":
-            return ("Stake Conf.", .destructive)
-        case "general":
-            return ("General Conf.", .destructive)
-        default:
-            return nil
-        }
-    }
 }
 
 public enum ShortDateFormatter {

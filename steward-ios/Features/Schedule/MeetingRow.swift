@@ -99,9 +99,6 @@ struct MeetingCardHeader: View {
                 }
             }
             Spacer(minLength: Spacing.s2)
-            if let badge = effectiveTypeBadge {
-                StatusBadge(label: badge.label, tone: badge.tone)
-            }
             overflowMenu
         }
         .padding(.horizontal, Spacing.s4)
@@ -111,11 +108,6 @@ struct MeetingCardHeader: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.border).frame(height: 0.5)
         }
-    }
-
-    private var effectiveTypeBadge: (label: String, tone: StatusBadge.Tone)? {
-        if let meeting { return meeting.typeBadge }
-        return Meeting(meetingType: Meeting.fallbackType(forDate: date)).typeBadge
     }
 
     private var overflowMenu: some View {
