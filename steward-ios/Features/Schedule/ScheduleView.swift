@@ -20,6 +20,11 @@ struct ScheduleView: View {
     @State private var horizonWeeks: Int = Self.initialWeeks
     @State private var loadingMore: Bool = false
     @State private var path = NavigationPath()
+    /// Drives the type-name-to-confirm sheet for swipe-to-remove on
+    /// non-planned rows. Planned rows skip this and delete straight
+    /// through (`handleDeleteRequest`).
+    @State private var pendingDelete: PendingDelete?
+    @State private var deleteError: String?
 
     private static let initialWeeks = 4
     private static let stepWeeks = 4
@@ -77,6 +82,59 @@ struct ScheduleView: View {
                 TwilioPlumbingDebugView(wardId: wardId)
             }
             #endif
+            .sheet(item: $pendingDelete) { pending in
+                DeleteSpeakerConfirmationSheet(
+                    speakerName: pending.speakerName,
+                    status: pending.status,
+                    kind: pending.kind,
+                    onConfirm: {
+                        pendingDelete = nil
+                        Task { await performDelete(pending) }
+                    },
+                    onCancel: { pendingDelete = nil }
+                )
+            }
+            .alert(
+                "Couldn't remove",
+                isPresented: Binding(
+                    get: { deleteError != nil },
+                    set: { if !$0 { deleteError = nil } }
+                ),
+                actions: { Button("OK", role: .cancel) { deleteError = nil } },
+                message: { Text(deleteError ?? "") }
+            )
+        }
+    }
+
+    /// Routes a swipe-revealed Remove tap. Planned rows delete
+    /// straight through (no real commitment to confirm); everything
+    /// else opens the type-name-to-confirm sheet.
+    private func handleDeleteRequest(_ pending: PendingDelete) {
+        if pending.status == .planned {
+            Task { await performDelete(pending) }
+        } else {
+            pendingDelete = pending
+        }
+    }
+
+    private func performDelete(_ pending: PendingDelete) async {
+        do {
+            switch pending.kind {
+            case .speaker:
+                try await SpeakerDeletionClient.deleteSpeaker(
+                    wardId: wardId,
+                    meetingDate: pending.meetingDate,
+                    speakerId: pending.speakerId
+                )
+            case .openingPrayer, .benediction:
+                try await SpeakerDeletionClient.deletePrayerAssignment(
+                    wardId: wardId,
+                    meetingDate: pending.meetingDate,
+                    kind: pending.kind
+                )
+            }
+        } catch {
+            deleteError = error.localizedDescription
         }
     }
 
@@ -127,7 +185,8 @@ struct ScheduleView: View {
                             },
                             onOpenChat: { presentation in
                                 path.append(presentation)
-                            }
+                            },
+                            onRequestDelete: handleDeleteRequest
                         )
                     }
                     horizonFooter

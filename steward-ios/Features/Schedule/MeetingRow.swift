@@ -18,6 +18,7 @@ struct MeetingCardSection: View {
     let wardId: String
     var onAssign: (SlotKind) -> Void = { _ in }
     var onOpenChat: ((ChatPresentation) -> Void)? = nil
+    var onRequestDelete: ((PendingDelete) -> Void)? = nil
 
     @State private var speakers: CollectionSubscription<Speaker>
 
@@ -26,13 +27,15 @@ struct MeetingCardSection: View {
         meeting: Meeting?,
         wardId: String,
         onAssign: @escaping (SlotKind) -> Void = { _ in },
-        onOpenChat: ((ChatPresentation) -> Void)? = nil
+        onOpenChat: ((ChatPresentation) -> Void)? = nil,
+        onRequestDelete: ((PendingDelete) -> Void)? = nil
     ) {
         self.date = date
         self.meeting = meeting
         self.wardId = wardId
         self.onAssign = onAssign
         self.onOpenChat = onOpenChat
+        self.onRequestDelete = onRequestDelete
         let path = "wards/\(wardId)/meetings/\(date)/speakers"
         let source = FirestoreCollectionSource(path: path)
         self._speakers = State(initialValue: CollectionSubscription<Speaker>(
@@ -50,7 +53,8 @@ struct MeetingCardSection: View {
                 wardId: wardId,
                 speakers: speakers,
                 onAssign: onAssign,
-                onOpenChat: onOpenChat
+                onOpenChat: onOpenChat,
+                onRequestDelete: onRequestDelete
             )
         } header: {
             MeetingCardHeader(
@@ -226,6 +230,11 @@ struct MeetingCardBody: View {
     /// presents `ConversationSheet` for the chat. nil disables the
     /// tap target — used by previews / unit-test snapshots.
     var onOpenChat: ((ChatPresentation) -> Void)? = nil
+    /// Fires when the user taps the swipe-revealed Remove button on
+    /// a filled row. The parent decides what to do: planned rows
+    /// delete straight through, non-planned rows go through the
+    /// type-name-to-confirm sheet.
+    var onRequestDelete: ((PendingDelete) -> Void)? = nil
 
     /// Floor for visible speaker rows — the typical ward roster.
     /// Below this, empty rows render as `Assign Speaker` placeholders
@@ -303,6 +312,22 @@ struct MeetingCardBody: View {
             ) else { return nil }
             return { onOpenChat(presentation) }
         }()
+        let deleteHandler: (() -> Void)? = {
+            guard assigned,
+                  let assignment,
+                  let person = assignment.person,
+                  let name = person.name, name.isEmpty == false,
+                  let role = kind.prayerRoleString,
+                  let onRequestDelete else { return nil }
+            let pending = PendingDelete(
+                kind: kind,
+                meetingDate: date,
+                speakerId: role,
+                speakerName: name,
+                status: InvitationStatus(rawString: assignment.status) ?? .planned
+            )
+            return { onRequestDelete(pending) }
+        }()
         return SlotRow(
             label: label,
             assignee: assignee,
@@ -311,7 +336,8 @@ struct MeetingCardBody: View {
             showStatus: assigned,
             assignKind: assigned ? nil : kind,
             onAssign: { onAssign(kind) },
-            onChat: chatHandler
+            onChat: chatHandler,
+            onDelete: deleteHandler
         )
     }
 
@@ -327,6 +353,18 @@ struct MeetingCardBody: View {
         return { onOpenChat(presentation) }
     }
 
+    private func speakerDeleteHandler(for slot: SpeakerSlot) -> (() -> Void)? {
+        guard let speakerItem = slot.speaker, let onRequestDelete else { return nil }
+        let pending = PendingDelete(
+            kind: .speaker,
+            meetingDate: date,
+            speakerId: speakerItem.id,
+            speakerName: speakerItem.data.name,
+            status: InvitationStatus(rawString: speakerItem.data.status) ?? .planned
+        )
+        return { onRequestDelete(pending) }
+    }
+
     @ViewBuilder
     private var speakerRows: some View {
         let assignedCount = speakers.items.count
@@ -340,7 +378,8 @@ struct MeetingCardBody: View {
                 showStatus: slot.speaker != nil,
                 assignKind: slot.speaker == nil ? .speaker : nil,
                 onAssign: { onAssign(.speaker) },
-                onChat: speakerChatHandler(for: slot)
+                onChat: speakerChatHandler(for: slot),
+                onDelete: speakerDeleteHandler(for: slot)
             )
             slotDivider
         }
@@ -445,8 +484,23 @@ private struct SlotRow: View {
     /// Tap target on the assignee name — opens the chat sheet. nil
     /// disables the tap (used for previews / unit-test snapshots).
     var onChat: (() -> Void)? = nil
+    /// Left-swipe-revealed remove action. nil disables the swipe (used
+    /// for empty rows + previews). Filled rows always pass this; the
+    /// parent decides whether to confirm-then-delete or delete
+    /// straight through based on status.
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
+        if let onDelete {
+            SwipeToDeleteRow(onDelete: onDelete) {
+                rowContent
+            }
+        } else {
+            rowContent
+        }
+    }
+
+    private var rowContent: some View {
         // Center-aligned so the slot label, assignee block, and status
         // dot all vertically center to the row's content height —
         // looks balanced whether the row has a single line ("Not
@@ -545,6 +599,18 @@ private struct StatusDot: View {
         }
         .frame(width: Self.size, height: Self.size)
         .accessibilityLabel("Status: \(status ?? "planned")")
+    }
+}
+
+private extension SlotKind {
+    /// Prayer participant doc id for the subcollection. Nil for
+    /// speakers, which have their own auto-generated ids.
+    var prayerRoleString: String? {
+        switch self {
+        case .speaker:        return nil
+        case .openingPrayer:  return "opening"
+        case .benediction:    return "benediction"
+        }
     }
 }
 #endif
