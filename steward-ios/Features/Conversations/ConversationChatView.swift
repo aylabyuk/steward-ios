@@ -146,9 +146,16 @@ struct ConversationChatView: View {
 
     private func handleStatusChange(_ next: InvitationStatus) {
         guard let bishopUid = auth.uid else { return }
+        // Re-entrance guard + synchronous state flip. Without these,
+        // a second tap during the brief window between the button's
+        // `onApply` firing and SwiftUI re-rendering with
+        // `.disabled(isApplying)` can queue a duplicate Task — which
+        // double-writes status, double-mirrors, and posts the
+        // "Assignment confirmed…" system message twice.
+        guard !isApplying else { return }
+        isApplying = true
+        applyError = nil
         Task {
-            isApplying = true
-            applyError = nil
             defer { isApplying = false }
             do {
                 switch kind {

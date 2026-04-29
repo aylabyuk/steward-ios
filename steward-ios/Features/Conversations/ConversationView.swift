@@ -102,24 +102,32 @@ struct ConversationView: View {
         )
     }
 
-    /// For speakers, subscribe to `meetings/{date}/speakers/{id}`.
-    /// For prayers, subscribe to `meetings/{date}/prayers/{role}` —
-    /// same field shape lets us decode straight into `Speaker`.
+    /// For speakers, subscribe to `meetings/{date}/speakers/{id}` and
+    /// decode the doc straight into `Speaker`. For prayers, subscribe
+    /// to `meetings/{date}/prayers/{role}` — that doc carries only
+    /// status fields (no name / email / phone / invitationId, since
+    /// those live on the inline meeting assignment), so decoding it
+    /// into a vanilla `Speaker` would fail on the non-optional `name`.
+    /// Merge the live status fields onto the snapshot via
+    /// `Speaker.merging(prayerParticipantJSON:)` so the chat banner
+    /// reflects up-to-date status without losing identity.
     private func ensureSpeakerSubscription() {
         guard speakerSubscription == nil else { return }
-        let path: String = {
-            switch kind {
-            case .speaker:
-                return "wards/\(wardId)/meetings/\(meetingDate)/speakers/\(speakerId)"
-            case .openingPrayer, .benediction:
-                return "wards/\(wardId)/meetings/\(meetingDate)/prayers/\(speakerId)"
-            }
-        }()
-        let source = FirestoreDocSource(path: path)
-        speakerSubscription = DocSubscription<Speaker>(
-            source: source,
-            decoder: { try JSONDecoder().decode(Speaker.self, from: $0) }
-        )
+        switch kind {
+        case .speaker:
+            let path = "wards/\(wardId)/meetings/\(meetingDate)/speakers/\(speakerId)"
+            speakerSubscription = DocSubscription<Speaker>(
+                source: FirestoreDocSource(path: path),
+                decoder: { try JSONDecoder().decode(Speaker.self, from: $0) }
+            )
+        case .openingPrayer, .benediction:
+            let path = "wards/\(wardId)/meetings/\(meetingDate)/prayers/\(speakerId)"
+            let snapshot = speaker
+            speakerSubscription = DocSubscription<Speaker>(
+                source: FirestoreDocSource(path: path),
+                decoder: { try snapshot.merging(prayerParticipantJSON: $0) }
+            )
+        }
     }
 }
 

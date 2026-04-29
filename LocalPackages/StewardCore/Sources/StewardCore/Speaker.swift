@@ -180,6 +180,58 @@ public struct Speaker: Codable, Sendable, Hashable {
     }
 }
 
+extension Speaker {
+    /// Fold the live status fields from a prayer-participant Firestore
+    /// doc onto this snapshot. Prayer participant docs at
+    /// `prayers/{role}` carry only status fields — name, email, phone,
+    /// and invitationId live on the inline meeting assignment, not on
+    /// the subcollection doc — so decoding the participant payload
+    /// directly into `Speaker` would fail on the missing non-optional
+    /// `name`. Use this when subscribing to a prayer participant doc
+    /// from a `ChatPresentation.forPrayer` snapshot: the snapshot's
+    /// identity fields are preserved while status / statusSource /
+    /// statusSetBy / statusSetAt come from the live doc.
+    public func merging(prayerParticipantJSON data: Data) throws -> Speaker {
+        let payload = try JSONDecoder().decode(PrayerParticipantPayload.self, from: data)
+        return Speaker(
+            name: name,
+            email: email,
+            phone: phone,
+            topic: topic,
+            status: payload.status,
+            role: role,
+            order: order,
+            statusSource: payload.statusSource,
+            statusSetBy: payload.statusSetBy,
+            statusSetAt: payload.statusSetAt,
+            invitationId: invitationId
+        )
+    }
+}
+
+/// Decoded shape of a prayer-participant Firestore doc — matches the
+/// fields written by the iOS `SpeakerStatusClient.updatePrayerStatus`
+/// and the web's `upsertPrayerParticipant`. Public so app-target
+/// callers can reuse the type when wiring the subscription.
+public struct PrayerParticipantPayload: Decodable, Sendable {
+    public let status: String?
+    public let statusSource: String?
+    public let statusSetBy: String?
+    public let statusSetAt: String?
+
+    public init(
+        status: String? = nil,
+        statusSource: String? = nil,
+        statusSetBy: String? = nil,
+        statusSetAt: String? = nil
+    ) {
+        self.status = status
+        self.statusSource = statusSource
+        self.statusSetBy = statusSetBy
+        self.statusSetAt = statusSetAt
+    }
+}
+
 /// One speaker row on a meeting card — either a real assignment
 /// (`speaker != nil`) or an empty placeholder ("Not assigned"). Identity
 /// keys on the speaker's id when filled, on the slot index when empty,
