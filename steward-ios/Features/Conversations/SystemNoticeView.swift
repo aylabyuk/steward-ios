@@ -26,15 +26,18 @@ struct SystemNoticeView: View {
                 .font(.serifAside)
                 .foregroundStyle(tint)
                 .lineLimit(1)
-                .fixedSize(horizontal: false, vertical: true)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
+                .layoutPriority(1)
             rule
         }
+        .padding(.horizontal, Spacing.s3)
         .padding(.vertical, Spacing.s3)
     }
 
-    /// Edge-to-edge horizontal rule that flexes to consume whatever
-    /// space the centered label leaves on each side.
+    /// Horizontal rule that flexes around the centered label —
+    /// `layoutPriority(1)` on the text means the rules surrender
+    /// whatever width the label needs first, so the text never
+    /// gets compressed into truncation.
     private var rule: some View {
         Rectangle()
             .fill(tint.opacity(0.4))
