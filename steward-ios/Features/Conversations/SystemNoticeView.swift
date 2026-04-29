@@ -25,14 +25,16 @@ struct SystemNoticeView: View {
             Text(message)
                 .font(.serifAside)
                 .foregroundStyle(tint)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
+                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.6)
             rule
         }
-        .padding(.horizontal, Spacing.s4)
         .padding(.vertical, Spacing.s3)
     }
 
+    /// Edge-to-edge horizontal rule that flexes to consume whatever
+    /// space the centered label leaves on each side.
     private var rule: some View {
         Rectangle()
             .fill(tint.opacity(0.4))
