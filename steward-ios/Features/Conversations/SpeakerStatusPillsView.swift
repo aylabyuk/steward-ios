@@ -30,19 +30,23 @@ struct SpeakerStatusPillsView: View {
             StatusBadge(rawStatus: current.rawValue)
         }
         .accessibilityHint("Change speaker status")
-        .alert(item: $pending) { next in
-            Alert(
-                title: Text(copy(for: next).title),
-                message: Text(copy(for: next).body),
-                primaryButton: copy(for: next).danger
-                    ? .destructive(Text(copy(for: next).confirmLabel)) {
-                        onChange(next)
-                    }
-                    : .default(Text(copy(for: next).confirmLabel)) {
-                        onChange(next)
-                    },
-                secondaryButton: .cancel()
-            )
+        .alert(
+            pending.map { copy(for: $0).title } ?? "",
+            isPresented: Binding(
+                get: { pending != nil },
+                set: { if !$0 { pending = nil } }
+            ),
+            presenting: pending
+        ) { next in
+            Button(
+                copy(for: next).confirmLabel,
+                role: copy(for: next).danger ? .destructive : nil
+            ) {
+                onChange(next)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { next in
+            Text(copy(for: next).body)
         }
     }
 
@@ -86,6 +90,3 @@ struct SpeakerStatusPillsView: View {
     }
 }
 
-extension InvitationStatus: @retroactive Identifiable {
-    public var id: String { rawValue }
-}

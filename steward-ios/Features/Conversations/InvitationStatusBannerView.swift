@@ -30,20 +30,24 @@ struct InvitationStatusBannerView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s2) {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.s3) {
+        let result = bannerResult
+        let provenance = provenanceLabel
+        let lastSeen = lastSeenLabel
+
+        return VStack(alignment: .leading, spacing: Spacing.s2) {
+            HStack(alignment: .top, spacing: Spacing.s3) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(bannerResult.message)
+                    Text(result.message)
                         .font(.bodyEmphasis)
-                        .foregroundStyle(messageColor)
+                        .foregroundStyle(color(for: result.tone))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if let reason = invitation.response?.reason, !reason.isEmpty {
                         Text("\u{201C}\(reason)\u{201D}")
                             .font(.serifAside)
                             .foregroundStyle(Color.walnut2)
                     }
-                    if let lastSeenLabel {
-                        Text(lastSeenLabel.uppercased())
+                    if let lastSeen {
+                        Text(lastSeen.uppercased())
                             .font(.monoEyebrow)
                             .tracking(1.0)
                             .foregroundStyle(Color.walnut3)
@@ -59,29 +63,33 @@ struct InvitationStatusBannerView: View {
                 )
                 .fixedSize()
             }
-            if bannerResult.showApply, let applyLabel = bannerResult.applyLabel {
-                HStack(spacing: Spacing.s2) {
-                    Spacer(minLength: 0)
-                    Button {
-                        onApply()
-                    } label: {
-                        Text(isApplying ? "Applying…" : applyLabel)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .tint(Color.bordeaux)
-                    .disabled(isApplying)
-                }
-            }
             if let applyError {
                 Text(applyError)
                     .font(.bodySmall)
                     .foregroundStyle(Color.bordeaux)
             }
-            if let provenanceLabel {
-                Text(provenanceLabel)
-                    .font(.monoEyebrow)
-                    .tracking(1.0)
-                    .foregroundStyle(Color.walnut3)
+            if provenance != nil || result.showApply {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.s3) {
+                    if let provenance {
+                        Text(provenance)
+                            .font(.monoEyebrow)
+                            .tracking(1.0)
+                            .foregroundStyle(Color.walnut3)
+                    }
+                    Spacer(minLength: 0)
+                    if result.showApply, let applyLabel = result.applyLabel {
+                        Button {
+                            onApply()
+                        } label: {
+                            Text(isApplying ? "Applying…" : applyLabel)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(Color.bordeaux)
+                        .controlSize(.small)
+                        .disabled(isApplying)
+                        .accessibilityHint("Records the speaker's reply on the schedule.")
+                    }
+                }
             }
         }
         .padding(.horizontal, Spacing.s4)
@@ -89,8 +97,8 @@ struct InvitationStatusBannerView: View {
         .padding(.bottom, Spacing.s3)
     }
 
-    private var messageColor: Color {
-        switch bannerResult.tone {
+    private func color(for tone: BannerView.Tone) -> Color {
+        switch tone {
         case .success:     return Color.success
         case .pending:     return Color.brassDeep
         case .destructive: return Color.bordeaux
