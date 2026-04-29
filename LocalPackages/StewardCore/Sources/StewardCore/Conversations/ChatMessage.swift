@@ -24,6 +24,13 @@ public struct ChatMessage: Sendable, Equatable, Hashable, Identifiable {
     /// shows an "Edited" label when this is later than `dateCreated`.
     public let dateUpdated: Date?
     public let attributes: Attributes?
+    /// Bubble-reaction overlay. Lives parallel to `attributes` because
+    /// reactions are metadata that can co-exist with any kind of
+    /// message (you can react to a status-change notice or a
+    /// quick-action response just like a regular message). Persisted
+    /// on Twilio attributes under the `reactions` key — see
+    /// `Reactions.parse(_:)` / `merging(into:)`.
+    public let reactions: Reactions
 
     public init(
         sid: String,
@@ -32,7 +39,8 @@ public struct ChatMessage: Sendable, Equatable, Hashable, Identifiable {
         body: String,
         dateCreated: Date?,
         dateUpdated: Date? = nil,
-        attributes: Attributes? = nil
+        attributes: Attributes? = nil,
+        reactions: Reactions = .empty
     ) {
         self.sid = sid
         self.index = index
@@ -41,6 +49,7 @@ public struct ChatMessage: Sendable, Equatable, Hashable, Identifiable {
         self.dateCreated = dateCreated
         self.dateUpdated = dateUpdated
         self.attributes = attributes
+        self.reactions = reactions
     }
 
     public var id: String { sid }

@@ -245,6 +245,39 @@ final class ConversationObserver: NSObject {
         }
     }
 
+    /// Toggle a reaction on a message: adds the current viewer's
+    /// identity to the emoji's bucket, or removes it if already
+    /// present. Reads the message's current attributes blob,
+    /// merges in the new reactions overlay, and writes the whole
+    /// thing back via `setAttributes` — Twilio doesn't expose a
+    /// patch API, so we have to read-merge-write. Last-write-wins
+    /// on simultaneous taps from different clients (acceptable for
+    /// the small bishopric audience).
+    func toggleReaction(messageSid: String, emoji: String) async throws {
+        let message = try await findMessage(withSid: messageSid)
+        let raw = message.attributes()?.dictionary as? [String: Any] ?? [:]
+        let current = Reactions.parse(raw)
+        let next = current.toggled(emoji: emoji, identity: identity)
+        let merged = next.merging(into: raw)
+        try await setAttributes(on: message, dict: merged)
+    }
+
+    private func setAttributes(on message: TCHMessage, dict: [String: Any]) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            guard let attrs = TCHJsonAttributes(dictionary: dict) else {
+                continuation.resume(throwing: makeError("could not encode reaction attributes"))
+                return
+            }
+            message.setAttributes(attrs) { result in
+                if result.isSuccessful {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: result.error ?? makeError("setAttributes failed"))
+                }
+            }
+        }
+    }
+
     private func findMessage(withSid sid: String) async throws -> TCHMessage {
         // Walk the last 200 — the recent window the chat-sheet supports
         // editing in is much smaller, but the lookup buffer can be
@@ -401,10 +434,9 @@ private nonisolated func toChatMessage(_ message: TCHMessage) -> ChatMessage {
     let body = message.body ?? ""
     let dateCreated = message.dateCreatedAsDate
     let dateUpdated = message.dateUpdatedAsDate
-    let attributes: ChatMessage.Attributes? = {
-        guard let raw = message.attributes()?.dictionary as? [String: Any] else { return nil }
-        return ChatMessage.Attributes.parse(raw)
-    }()
+    let raw = message.attributes()?.dictionary as? [String: Any]
+    let attributes = ChatMessage.Attributes.parse(raw)
+    let reactions = Reactions.parse(raw)
     return ChatMessage(
         sid: sid,
         index: index,
@@ -412,7 +444,8 @@ private nonisolated func toChatMessage(_ message: TCHMessage) -> ChatMessage {
         body: body,
         dateCreated: dateCreated,
         dateUpdated: dateUpdated,
-        attributes: attributes
+        attributes: attributes,
+        reactions: reactions
     )
 }
 

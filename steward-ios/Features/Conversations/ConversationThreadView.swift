@@ -26,6 +26,22 @@ struct ConversationThreadView: View {
     /// Same shape for the Edit affordance.
     var canEdit: (ChatMessage) -> Bool = { _ in false }
     var onEdit: (ChatMessage) -> Void = { _ in }
+    /// Reaction toggle handler, fired with the message + chosen
+    /// emoji. Nil identity disables the affordance.
+    var onToggleReaction: (ChatMessage, String) -> Void = { _, _ in }
+
+    /// True when the viewer is within `nearBottomThreshold` points of
+    /// the bottom edge. Drives two behaviours:
+    ///  - Auto-scroll on new messages only fires when this is true,
+    ///    so a viewer reading older history isn't yanked back when a
+    ///    new bubble arrives.
+    ///  - The "jump to latest" pill shows when this is false.
+    @State private var isNearBottom: Bool = true
+
+    /// How close to the bottom (in points) counts as "near". Tuned
+    /// so that the auto-scroll-on-new-message keeps up with normal
+    /// reading without snapping the viewer mid-scroll.
+    private static let nearBottomThreshold: CGFloat = 200
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -47,8 +63,21 @@ struct ConversationThreadView: View {
                     .padding(.bottom, Spacing.s4)
                 }
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                let distanceFromBottom = geometry.contentSize.height
+                    - geometry.contentOffset.y
+                    - geometry.containerSize.height
+                return distanceFromBottom < Self.nearBottomThreshold
+            } action: { _, newValue in
+                isNearBottom = newValue
+            }
             .onChange(of: messages.count) { _, _ in
                 guard !messages.isEmpty else { return }
+                // Only follow new messages when the viewer is already
+                // reading the bottom of the thread. Otherwise leave
+                // them where they are; the scroll-to-latest pill is
+                // their explicit catch-up affordance.
+                guard isNearBottom else { return }
                 withAnimation(.easeOut(duration: 0.18)) {
                     proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
                 }
@@ -57,7 +86,36 @@ struct ConversationThreadView: View {
                 guard !messages.isEmpty else { return }
                 proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
             }
+            .overlay(alignment: .bottomTrailing) {
+                if isNearBottom == false && messages.isEmpty == false {
+                    scrollToLatestPill(proxy: proxy)
+                        .padding(.trailing, Spacing.s3)
+                        .padding(.bottom, Spacing.s2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: isNearBottom)
         }
+    }
+
+    /// Floating chevron-down button shown when the viewer has
+    /// scrolled away from the latest messages. Tap to animate back
+    /// to the bottom anchor.
+    private func scrollToLatestPill(proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.22)) {
+                proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.walnut)
+                .frame(width: 36, height: 36)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().stroke(Color.border, lineWidth: 0.5))
+                .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+        }
+        .accessibilityLabel("Scroll to latest message")
     }
 
     private static let bottomAnchor = "thread-bottom-anchor"
@@ -88,7 +146,9 @@ struct ConversationThreadView: View {
                 canDelete: canDelete,
                 onDelete: onDelete,
                 canEdit: canEdit,
-                onEdit: onEdit
+                onEdit: onEdit,
+                currentIdentity: currentIdentity,
+                onToggleReaction: onToggleReaction
             )
         }
     }

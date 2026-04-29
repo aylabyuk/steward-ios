@@ -26,6 +26,11 @@ struct ConversationGroupView: View {
     /// `MessagePermissions.canEdit` upstream.
     var canEdit: (ChatMessage) -> Bool = { _ in false }
     var onEdit: (ChatMessage) -> Void = { _ in }
+    /// Current viewer's Twilio identity (`uid:bishop` /
+    /// `speaker:invitationId`). Drives reaction-chip highlighting +
+    /// gates the React submenu. Nil during loading.
+    var currentIdentity: String? = nil
+    var onToggleReaction: (ChatMessage, String) -> Void = { _, _ in }
 
     var body: some View {
         VStack(alignment: group.mine ? .trailing : .leading, spacing: 2) {
@@ -80,7 +85,9 @@ struct ConversationGroupView: View {
                     canDelete: canDelete(message),
                     onDelete: { onDelete(message) },
                     canEdit: canEdit(message),
-                    onEdit: { onEdit(message) }
+                    onEdit: { onEdit(message) },
+                    currentIdentity: currentIdentity,
+                    onToggleReaction: { emoji in onToggleReaction(message, emoji) }
                 )
             }
         }

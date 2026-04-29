@@ -25,6 +25,15 @@ struct ConversationBubbleView: View {
     /// strict identity match). Edit + Delete coexist when both true.
     var canEdit: Bool = false
     var onEdit: () -> Void = {}
+    /// Identity of the current viewer — used to highlight chips the
+    /// viewer has reacted with and to feed `toggleReaction` writes.
+    /// Nil means the viewer hasn't been resolved yet (loading
+    /// state); reactions display read-only.
+    var currentIdentity: String? = nil
+    /// Fires with the chosen emoji when the viewer toggles a
+    /// reaction (from the bubble's React submenu OR by tapping an
+    /// existing chip). Parent owns the Twilio write.
+    var onToggleReaction: (String) -> Void = { _ in }
 
     enum Position { case single, first, middle, last }
 
@@ -37,6 +46,9 @@ struct ConversationBubbleView: View {
                     .foregroundStyle(responseLabelColor)
             }
             bubble
+            if message.reactions.nonEmpty {
+                reactionChips
+            }
             if message.wasEdited {
                 Text("Edited")
                     .font(.monoMicro)
@@ -45,6 +57,53 @@ struct ConversationBubbleView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+    }
+
+    /// Stack of small chips below the bubble — one per emoji that
+    /// has at least one reaction. Tap a chip to toggle the viewer's
+    /// own reaction with that emoji. The chip the viewer has
+    /// already reacted with renders with a tinted ring so they can
+    /// see their participation at a glance.
+    private var reactionChips: some View {
+        HStack(spacing: 4) {
+            ForEach(message.reactions.orderedEntries, id: \.emoji) { entry in
+                let mineReaction = currentIdentity.map { entry.identities.contains($0) } ?? false
+                Button {
+                    onToggleReaction(entry.emoji)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(entry.emoji).font(.system(size: 13))
+                        if entry.identities.count > 1 {
+                            Text("\(entry.identities.count)")
+                                .font(.monoMicro)
+                                .tracking(0.4)
+                                .foregroundStyle(mineReaction ? Color.bordeaux : Color.walnut2)
+                        }
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        mineReaction ? Color.dangerSoft : Color.parchment,
+                        in: Capsule()
+                    )
+                    .overlay(
+                        Capsule().stroke(
+                            mineReaction ? Color.bordeaux.opacity(0.5) : Color.border,
+                            lineWidth: 0.5
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(reactionAccessibilityLabel(emoji: entry.emoji, count: entry.identities.count, mine: mineReaction))
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private func reactionAccessibilityLabel(emoji: String, count: Int, mine: Bool) -> String {
+        let countPart = count == 1 ? "1 reaction" : "\(count) reactions"
+        let suffix = mine ? "; tap to remove yours" : "; tap to react"
+        return "\(emoji) — \(countPart)\(suffix)"
     }
 
     @ViewBuilder
@@ -59,9 +118,12 @@ struct ConversationBubbleView: View {
             .overlay(bubbleOverlay)
             .clipShape(bubbleShape)
             .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
-        if canEdit || canDelete {
+        if canReact || canEdit || canDelete {
             base
                 .contextMenu {
+                    if canReact {
+                        reactSubmenu
+                    }
                     if canEdit {
                         Button {
                             onEdit()
@@ -81,6 +143,29 @@ struct ConversationBubbleView: View {
                 }
         } else {
             base
+        }
+    }
+
+    /// Reactions are available to anyone with a resolved identity —
+    /// no edit-window gate, no same-side rule. Disabled (`false`)
+    /// only when the viewer's identity hasn't loaded.
+    private var canReact: Bool { currentIdentity != nil }
+
+    /// "React" sub-menu inside the bubble's contextMenu. One button
+    /// per palette emoji; the viewer's existing reactions get a
+    /// checkmark so they read as toggleable rather than additive.
+    private var reactSubmenu: some View {
+        Menu {
+            ForEach(Reactions.palette, id: \.self) { emoji in
+                let mineReaction = currentIdentity.map { message.reactions.includes(emoji: emoji, identity: $0) } ?? false
+                Button {
+                    onToggleReaction(emoji)
+                } label: {
+                    Label(emoji, systemImage: mineReaction ? "checkmark" : "")
+                }
+            }
+        } label: {
+            Label("React", systemImage: "face.smiling")
         }
     }
 

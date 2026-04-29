@@ -58,7 +58,8 @@ struct ConversationChatView: View {
                     canDelete: permissions.canDelete,
                     onDelete: handleDelete,
                     canEdit: permissions.canEdit,
-                    onEdit: handleEdit
+                    onEdit: handleEdit,
+                    onToggleReaction: handleToggleReaction
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 TypingIndicatorView(
@@ -261,6 +262,23 @@ struct ConversationChatView: View {
                 try await observer.updateBody(messageSid: message.sid, body: body)
             } catch {
                 applyError = "Couldn't edit the message — \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Toggle a reaction on a message via the observer. The Twilio
+    /// `setAttributes` call is best-effort — we surface the error
+    /// inline so the bishop knows the reaction didn't land, but
+    /// don't roll back optimistically since there's no local mirror
+    /// to roll back to (the messageUpdated delegate emits the new
+    /// state once the write succeeds).
+    private func handleToggleReaction(_ message: ChatMessage, emoji: String) {
+        guard let observer else { return }
+        Task {
+            do {
+                try await observer.toggleReaction(messageSid: message.sid, emoji: emoji)
+            } catch {
+                applyError = "Couldn't react — \(error.localizedDescription)"
             }
         }
     }
