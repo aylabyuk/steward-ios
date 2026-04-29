@@ -25,8 +25,8 @@ struct SystemNoticeView: View {
             Text(message)
                 .font(.serifAside)
                 .foregroundStyle(tint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
                 .layoutPriority(1)
             rule
         }
