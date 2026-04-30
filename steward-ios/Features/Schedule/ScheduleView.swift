@@ -2,11 +2,33 @@ import SwiftUI
 import StewardCore
 
 #if canImport(FirebaseFirestore)
+/// Mobile schedule. Calendar-driven (mirrors web's `useUpcomingMeetings`):
+/// the list is the next N Sundays starting today, each rendering whether
+/// or not a meeting doc exists for that date. Horizon starts at 4 weeks
+/// and grows in 4-week steps as the user nears the bottom (capped at 16).
+///
+/// Each meeting's **date strip** is a `pinnedViews: [.sectionHeaders]`
+/// section header — it sticks to the top of the scroll viewport while
+/// that meeting's body scrolls past, then is replaced by the next card's
+/// strip. Mirrors `MobileSundayBlock`'s `sticky top-0` strip on the web.
 struct ScheduleView: View {
     let auth: AuthClient
     let wardId: String
 
     @State private var schedule: CollectionSubscription<Meeting>
+    @State private var ward: DocSubscription<Ward>
+    @State private var horizonWeeks: Int = Self.initialWeeks
+    @State private var loadingMore: Bool = false
+    @State private var path = NavigationPath()
+    /// Drives the type-name-to-confirm sheet for swipe-to-remove on
+    /// non-planned rows. Planned rows skip this and delete straight
+    /// through (`handleDeleteRequest`).
+    @State private var pendingDelete: PendingDelete?
+    @State private var deleteError: String?
+
+    private static let initialWeeks = 4
+    private static let stepWeeks = 4
+    private static let maxWeeks = 16
 
     init(auth: AuthClient, wardId: String) {
         self.auth = auth
@@ -18,86 +40,199 @@ struct ScheduleView: View {
             decoder: { try JSONDecoder().decode(Meeting.self, from: $0) },
             path: path
         ))
+        let wardSource = FirestoreDocSource(path: "wards/\(wardId)")
+        self._ward = State(initialValue: DocSubscription<Ward>(
+            source: wardSource,
+            decoder: { try JSONDecoder().decode(Ward.self, from: $0) }
+        ))
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.parchment.ignoresSafeArea()
-            content
-            stickyToolbar
+        NavigationStack(path: $path) {
+            ZStack {
+                Color.parchment.ignoresSafeArea()
+                content
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                ScheduleTopBar(
+                    wardTitle: Ward.displayTitle(ward: ward.data, wardId: wardId),
+                    auth: auth,
+                    onOpenTwilioDebug: openTwilioDebug
+                )
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: SlotContext.self) { context in
+                AssignSlotFormView(context: context, path: $path)
+            }
+            .navigationDestination(for: InvitationDraft.self) { draft in
+                InvitationPreviewView(draft: draft, auth: auth, path: $path)
+            }
+            .navigationDestination(for: ChatPresentation.self) { presentation in
+                ConversationView(
+                    wardId: wardId,
+                    meetingDate: presentation.meetingDate,
+                    speakerId: presentation.speakerId,
+                    kind: presentation.kind,
+                    speaker: presentation.speaker,
+                    auth: auth
+                )
+            }
+            #if DEBUG
+            .navigationDestination(for: TwilioDebugRoute.self) { _ in
+                TwilioPlumbingDebugView(wardId: wardId)
+            }
+            #endif
+            .sheet(item: $pendingDelete) { pending in
+                DeleteSpeakerConfirmationSheet(
+                    speakerName: pending.speakerName,
+                    status: pending.status,
+                    kind: pending.kind,
+                    onConfirm: {
+                        // The sheet's environment `dismiss()` will
+                        // clear `pendingDelete` automatically since
+                        // it's bound to `.sheet(item:)`. The parent
+                        // only owns the side-effect: the actual write.
+                        Task { await performDelete(pending) }
+                    }
+                )
+            }
+            .alert(
+                "Couldn't remove",
+                isPresented: Binding(
+                    get: { deleteError != nil },
+                    set: { if !$0 { deleteError = nil } }
+                ),
+                actions: { Button("OK", role: .cancel) { deleteError = nil } },
+                message: { Text(deleteError ?? "") }
+            )
         }
+    }
+
+    /// Routes a swipe-revealed Remove tap. Planned rows delete
+    /// straight through (no real commitment to confirm); everything
+    /// else opens the type-name-to-confirm sheet.
+    private func handleDeleteRequest(_ pending: PendingDelete) {
+        if pending.status == .planned {
+            Task { await performDelete(pending) }
+        } else {
+            pendingDelete = pending
+        }
+    }
+
+    private func performDelete(_ pending: PendingDelete) async {
+        do {
+            switch pending.kind {
+            case .speaker:
+                try await SpeakerDeletionClient.deleteSpeaker(
+                    wardId: wardId,
+                    meetingDate: pending.meetingDate,
+                    speakerId: pending.speakerId
+                )
+            case .openingPrayer, .benediction:
+                try await SpeakerDeletionClient.deletePrayerAssignment(
+                    wardId: wardId,
+                    meetingDate: pending.meetingDate,
+                    kind: pending.kind
+                )
+            }
+        } catch {
+            deleteError = error.localizedDescription
+        }
+    }
+
+    /// Routes the avatar menu's debug entry through the same NavigationStack
+    /// as the schedule's other destinations. `nil` in non-DEBUG builds so
+    /// the menu item is hidden entirely.
+    private var openTwilioDebug: (() -> Void)? {
+        #if DEBUG
+        { path.append(TwilioDebugRoute()) }
+        #else
+        nil
+        #endif
+    }
+
+    private func slotContext(date: String, kind: SlotKind) -> SlotContext {
+        SlotContext(
+            wardId: wardId,
+            meetingDate: date,
+            kind: kind,
+            wardName: Ward.displayTitle(ward: ward.data, wardId: wardId),
+            inviterName: auth.displayName ?? auth.email ?? "Bishopric"
+        )
     }
 
     @ViewBuilder
     private var content: some View {
-        if schedule.loading {
-            loadingState
-        } else if let error = schedule.error {
+        if let error = schedule.error {
             errorState(error)
-        } else if schedule.items.isEmpty {
-            emptyState
         } else {
             ScrollView {
                 AppBarHeader(
-                    eyebrow: "Ward administration",
+                    eyebrow: "Sacrament meeting",
                     title: "Schedule",
-                    description: "Upcoming sacrament meetings."
+                    description: "Assign speakers for the weeks ahead."
                 )
-                .padding(.top, Spacing.s12)  // leave room for the glass toolbar
+
+                let dates = UpcomingSundays.next(from: Date(), weeks: horizonWeeks)
+                let byDate = Dictionary(uniqueKeysWithValues: schedule.items.map { ($0.id, $0.data) })
 
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    ForEach(ScheduleSections.groupByMonth(schedule.items), id: \.title) { section in
-                        Section {
-                            ForEach(section.items) { item in
-                                MeetingRow(date: item.id, meeting: item.data)
-                            }
-                        } header: {
-                            monthHeader(section.title)
-                        }
+                    ForEach(dates, id: \.self) { date in
+                        MeetingCardSection(
+                            date: date,
+                            meeting: byDate[date],
+                            wardId: wardId,
+                            onAssign: { kind in
+                                path.append(slotContext(date: date, kind: kind))
+                            },
+                            onOpenChat: { presentation in
+                                path.append(presentation)
+                            },
+                            onRequestDelete: handleDeleteRequest
+                        )
                     }
+                    horizonFooter
                 }
                 .padding(.bottom, Spacing.s12)
             }
         }
     }
 
-    private var stickyToolbar: some View {
-        HStack {
-            Spacer()
-            Button("Sign out", action: auth.signOut)
+    /// "Loading…" sentinel at the bottom of the list. Mirrors the web's
+    /// IntersectionObserver — when this row appears on screen, advance
+    /// the horizon by `stepWeeks` (capped at `maxWeeks`) after a short
+    /// delay so the growth doesn't feel instantaneous.
+    @ViewBuilder
+    private var horizonFooter: some View {
+        if horizonWeeks < Self.maxWeeks {
+            Text(loadingMore ? "Loading…" : "")
                 .font(.monoEyebrow)
                 .tracking(1.4)
-                .foregroundStyle(Color.walnut2)
-                .padding(.horizontal, Spacing.s3)
-                .padding(.vertical, Spacing.s2)
-                .glassEffect(.regular.interactive(), in: .capsule)
-        }
-        .padding(.horizontal, Spacing.s4)
-        .padding(.top, Spacing.s2)
-    }
-
-    private func monthHeader(_ title: String) -> some View {
-        HStack {
-            Text(title.uppercased())
+                .foregroundStyle(Color.walnut3)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.s6)
+                .onAppear { advanceHorizon() }
+        } else {
+            Text("Showing up to 16 weeks ahead")
                 .font(.monoEyebrow)
-                .tracking(1.6)
-                .foregroundStyle(Color.brassDeep)
-            Spacer()
+                .tracking(1.4)
+                .foregroundStyle(Color.walnut3)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.s6)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(Color.border.opacity(0.6)).frame(height: 0.5)
+                }
         }
-        .padding(.horizontal, Spacing.s4)
-        .padding(.top, Spacing.s5)
-        .padding(.bottom, Spacing.s2)
-        .background(Color.parchment.opacity(0.95))
     }
 
-    private var loadingState: some View {
-        VStack(spacing: Spacing.s3) {
-            ProgressView()
-            Text("Loading schedule…")
-                .font(.bodySmall)
-                .foregroundStyle(Color.walnut2)
+    private func advanceHorizon() {
+        guard horizonWeeks < Self.maxWeeks, loadingMore == false else { return }
+        loadingMore = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            horizonWeeks = min(horizonWeeks + Self.stepWeeks, Self.maxWeeks)
+            loadingMore = false
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func errorState(_ error: Error) -> some View {
@@ -116,21 +251,11 @@ struct ScheduleView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    private var emptyState: some View {
-        VStack(spacing: Spacing.s3) {
-            Image(systemName: "calendar")
-                .font(.system(size: 36))
-                .foregroundStyle(Color.walnut3)
-            Text("No meetings yet")
-                .font(.displaySection)
-                .foregroundStyle(Color.walnut)
-            Text("Add meetings on the web to see them here.")
-                .font(.bodySmall)
-                .foregroundStyle(Color.walnut2)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
 }
+
+#if DEBUG
+/// Sentinel value type for the NavigationStack route to the Twilio
+/// plumbing debug screen. Hashable + isolated to DEBUG builds.
+struct TwilioDebugRoute: Hashable {}
+#endif
 #endif

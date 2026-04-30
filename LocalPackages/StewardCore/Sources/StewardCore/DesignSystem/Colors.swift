@@ -46,6 +46,11 @@ public extension Color {
     static let bordeauxDeep = dynamic(light: 0x6B1F1C, dark: 0xA55050)
     /// Light bordeaux backgrounds (badges). Web `--color-bordeaux-soft`.
     static let bordeauxSoft = dynamic(light: 0xB65449, dark: 0x3B1F1D)
+    /// Punchier bordeaux used by the schedule's `StatusDot` for the
+    /// "declined" state — the muted brand bordeaux blends into the
+    /// row's walnut text at the 10pt dot size. iOS-only (the web uses
+    /// text pills, not dots).
+    static let bordeauxBold = dynamic(light: 0xC4322A, dark: 0xE45D55)
 
     // MARK: Brand golds (brass family)
 
@@ -55,6 +60,17 @@ public extension Color {
     static let brassSoft = dynamic(light: 0xE0BE87, dark: 0x3D2E1C)
     /// Brass on dark / strong brass labels. Web `--color-brass-deep`.
     static let brassDeep = dynamic(light: 0x8E6A36, dark: 0xC89B5A)
+
+    // MARK: App bar (always-dark surface)
+
+    /// Top app-bar background. Intentionally non-swapping — the bar reads as
+    /// a dark surface in both modes. Slightly darker in dark mode so it
+    /// stays distinct from the (also-dark) page background.
+    static let appBar = dynamic(light: 0x3B2A22, dark: 0x100A07)
+    /// Text/icon foreground that sits on `appBar`. Always parchment-cream.
+    static let onAppBar = Color(hex: 0xFBF6EE)
+    /// Muted text on `appBar` (e.g. chevrons, secondary labels). Cream at 70%.
+    static let onAppBarMuted = Color(hex: 0xFBF6EE, opacity: 0.70)
 
     // MARK: Borders
 
@@ -69,6 +85,12 @@ public extension Color {
     static let success = dynamic(light: 0x4E6B3A, dark: 0x9BB583)
     /// Success badge fill. Web `--color-success-soft`.
     static let successSoft = dynamic(light: 0xE2EAD3, dark: 0x1F3220)
+    /// Punchier success used by the schedule's `StatusDot` — the
+    /// muted olive of `success` reads too quietly at the 10pt dot
+    /// size when the bishop is scanning a row of statuses. iOS-only
+    /// (the web uses text pills, not dots, so there's no equivalent
+    /// `--color-*` to mirror).
+    static let successBold = dynamic(light: 0x2E8B4F, dark: 0x65D984)
 
     /// Warning text. Web `--color-warning`.
     static let warning = dynamic(light: 0xB97A19, dark: 0xE0B067)

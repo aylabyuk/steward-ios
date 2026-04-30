@@ -25,6 +25,11 @@ public struct StatusBadge: View {
         Text(label.uppercased())
             .font(.monoMicro)
             .tracking(1.2)
+            .lineLimit(1)
+            // Claim natural width and never wrap — long labels like
+            // "General Conference" must stay on one line so every card
+            // header strip is the same height.
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, Spacing.s3)
             .padding(.vertical, 5)
             .foregroundStyle(tone.foreground)
@@ -44,21 +49,23 @@ public struct StatusBadge: View {
         case destructive
 
         public init(rawStatus: String?) {
+            // Speaker / prayer invitation lifecycle is the canonical
+            // four-state mapping; defer to InvitationStatus so that
+            // enum stays the single source of truth.
+            if let invitation = InvitationStatus(rawString: rawStatus) {
+                self = invitation.tone
+                return
+            }
+            // Meeting-side states the web also emits — different raw
+            // strings, same four tone slots.
             switch rawStatus?.lowercased() {
-            case "invited", "pending_approval":
-                self = .pending
-            case "confirmed", "approved", "published":
-                self = .success
-            case "declined":
-                self = .destructive
-            case "planned", "draft", nil, "":
-                self = .neutral
-            default:
-                self = .neutral
+            case "pending_approval":            self = .pending
+            case "approved", "published":       self = .success
+            default:                            self = .neutral
             }
         }
 
-        var foreground: Color {
+        public var foreground: Color {
             switch self {
             case .neutral: .walnut2
             case .pending: .brassDeep
@@ -66,7 +73,7 @@ public struct StatusBadge: View {
             case .destructive: .bordeaux
             }
         }
-        var background: Color {
+        public var background: Color {
             switch self {
             case .neutral: .parchment2
             case .pending: .brassSoft
@@ -74,7 +81,7 @@ public struct StatusBadge: View {
             case .destructive: .dangerSoft
             }
         }
-        var border: Color {
+        public var border: Color {
             switch self {
             case .neutral: .border
             case .pending: .brassSoft

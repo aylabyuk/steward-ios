@@ -46,6 +46,34 @@
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<!--
+			NSAllowsLocalNetworking covers `.local` domains and link-local
+			IPs but NOT loopback IP literals like 127.0.0.1, which is what
+			the Firebase Functions SDK uses when `useEmulator(withHost:)`
+			is set. Firestore's emulator path uses gRPC and bypasses ATS,
+			so this only became an issue once Functions was wired in.
+			Targeted per-host exceptions keep production HTTPS strict.
+		-->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>127.0.0.1</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>0.0.0.0</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>

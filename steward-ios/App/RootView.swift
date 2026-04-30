@@ -6,6 +6,7 @@ struct RootView: View {
     @State private var auth = AuthClient()
     @State private var currentWard = CurrentWard()
     @State private var wardAccess = WardAccessClient(source: nil)
+    @State private var twilio = TwilioChatClient()
 
     var body: some View {
         Group {
@@ -16,8 +17,15 @@ struct RootView: View {
             }
         }
         .animation(.default, value: auth.isSignedIn)
+        .environment(twilio)
         .onChange(of: auth.email) { _, newEmail in
             rewireWardAccess(for: newEmail)
+        }
+        .onChange(of: auth.isSignedIn) { _, signedIn in
+            // Sign-out tears down the Twilio session so a re-sign-in
+            // mints a fresh token + identity rather than reusing the
+            // last user's connection.
+            if !signedIn { twilio.disconnect() }
         }
         .onChange(of: wardAccess.state) { _, state in
             currentWard.resolve(from: state)
@@ -39,6 +47,7 @@ struct RootView: View {
         case .multiple(let members):
             if let wardId = currentWard.wardId {
                 ScheduleView(auth: auth, wardId: wardId)
+                    .id(wardId)
             } else {
                 WardPickerView(auth: auth, currentWard: currentWard, members: members)
             }
@@ -49,6 +58,7 @@ struct RootView: View {
     private var scheduleOrLoading: some View {
         if let wardId = currentWard.wardId {
             ScheduleView(auth: auth, wardId: wardId)
+                .id(wardId)
         } else {
             // `.single(_)` resolves CurrentWard via .onChange of state, but
             // there's a one-tick window before that fires; render the

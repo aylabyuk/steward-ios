@@ -14,6 +14,8 @@ import FirebaseAuth
 final class AuthClient {
     private(set) var uid: String?
     private(set) var email: String?
+    private(set) var displayName: String?
+    private(set) var photoURL: URL?
     private(set) var lastError: Error?
 
     private var task: Task<Void, Never>?
@@ -24,6 +26,8 @@ final class AuthClient {
                 guard let self else { return }
                 self.uid = user?.uid
                 self.email = user?.email
+                self.displayName = user?.displayName
+                self.photoURL = user?.photoURL
             }
         }
     }
@@ -46,10 +50,13 @@ final class AuthClient {
     }
 
     /// Google Sign-In via Firebase's `OAuthProvider`. Routes through
-    /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is set
-    /// the SDK redirects to the Firebase Auth emulator's fake account
-    /// chooser at `localhost:9099/emulator/auth/handler` — same UX the web
-    /// app gets in emulator mode, no real Google OAuth round-trip.
+    /// `ASWebAuthenticationSession`; when `Auth.useEmulator(...)` is
+    /// set the SDK redirects to the emulator's hosted fake account
+    /// chooser at `http://{host}:9099/emulator/auth/handler`. Same UX
+    /// the web app gets in emulator mode — no real Google round-trip.
+    /// The ATS exceptions in `Info.plist` cover `localhost`, `127.0.0.1`,
+    /// and `0.0.0.0` so the handler page loads regardless of which one
+    /// the emulator binds to.
     func signInWithGoogle() async {
         do {
             let provider = OAuthProvider(providerID: "google.com")

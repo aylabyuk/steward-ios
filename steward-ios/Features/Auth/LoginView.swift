@@ -11,12 +11,6 @@ struct LoginView: View {
     /// verify the returned identity token's `nonce` claim.
     @State private var currentAppleNonce: String?
 
-    // DEBUG / emulator-only state for the dev-iteration shortcut.
-    #if DEBUG
-    @State private var debugEmail: String = ""
-    @State private var debugPassword: String = ""
-    #endif
-
     var body: some View {
         ZStack {
             Color.parchment2.ignoresSafeArea()
@@ -118,15 +112,24 @@ struct LoginView: View {
     @ViewBuilder
     private var debugShortcut: some View {
         if EmulatorConfig.isEnabled {
-            VStack(spacing: Spacing.s2) {
+            VStack(spacing: Spacing.s3) {
                 Text("DEBUG · EMULATOR ONLY")
                     .font(.monoMicro)
                     .tracking(1.2)
                     .foregroundStyle(Color.walnut3)
-                Button("Sign in as bishop@e2e.local", action: signInAsBishop)
-                    .buttonStyle(.glass)
-                    .tint(Color.brass)
-                    .disabled(isSubmitting)
+
+                Button(action: signInAsBishop) {
+                    // `Text(verbatim:)` opts out of SwiftUI's automatic
+                    // email/URL linkification — without it, iOS treats
+                    // `bishop@e2e.local` as a tappable mailto: link and
+                    // intercepts taps on that range, which fails on the
+                    // simulator (no Mail app) with LSApplicationWorkspace
+                    // error 115 instead of firing the button action.
+                    Text(verbatim: "Sign in as bishop@e2e.local")
+                }
+                .buttonStyle(.glass)
+                .tint(Color.brass)
+                .disabled(isSubmitting)
             }
             .padding(.top, Spacing.s2)
         }

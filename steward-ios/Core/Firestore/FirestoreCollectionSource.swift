@@ -74,9 +74,13 @@ private func sanitizeForJSON(_ value: Any) -> Any? {
         return ISO8601DateFormatter().string(from: timestamp.dateValue())
     case is NSNull:
         return NSNull()
-    case let bool as Bool:
-        return bool
     case let number as NSNumber:
+        // IMPORTANT: do NOT add an `as Bool` case before this one — Swift's
+        // NSNumber→Bool bridging silently casts numeric NSNumber(0)/NSNumber(1)
+        // to `false`/`true`, which corrupts integer fields like Firestore's
+        // `order`. Letting NSNumber pass through preserves the underlying
+        // ObjC type, and JSONSerialization formats booleans as `true`/`false`
+        // and integers as numbers based on `objCType`.
         return number
     case let string as String:
         return string

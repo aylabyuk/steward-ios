@@ -28,11 +28,17 @@ public extension Font {
         .custom("Newsreader", size: size).weight(weight)
     }
 
-    /// Newsreader Italic. Specifying the italic family-named instance via
-    /// PostScript so the italic axis is honoured even when callers don't
-    /// chain `.italic()`.
+    /// Newsreader Italic. The bundled `Newsreader-Italic.ttf` registers a
+    /// set of weight-specific PostScript names (`NewsreaderItalic-Medium`
+    /// etc.) plus a default optical-size instance, `Newsreader16pt-Italic`
+    /// — verified in `FontAudit.dumpLoadedFonts()` output. Use the
+    /// optical-size default so the slant is honoured at body sizes
+    /// without callers having to chain `.italic()`. Earlier versions
+    /// pointed at `NewsreaderItalic-Regular`, which does NOT exist in
+    /// the bundle — iOS silently fell back to SF and the italics never
+    /// rendered.
     static func displayItalic(_ size: CGFloat) -> Font {
-        .custom("NewsreaderItalic-Regular", size: size)
+        .custom("Newsreader16pt-Italic", size: size)
     }
 
     /// Inter Variable (sans). Default body face.

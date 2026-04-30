@@ -9,6 +9,8 @@ public struct Meeting: Codable, Sendable, Equatable {
     public let status: String?
     public let conducting: Assignment?
     public let presiding: Assignment?
+    public let openingPrayer: Assignment?
+    public let benediction: Assignment?
     public let openingHymn: Hymn?
     public let sacramentHymn: Hymn?
     public let closingHymn: Hymn?
@@ -18,6 +20,8 @@ public struct Meeting: Codable, Sendable, Equatable {
         status: String? = nil,
         conducting: Assignment? = nil,
         presiding: Assignment? = nil,
+        openingPrayer: Assignment? = nil,
+        benediction: Assignment? = nil,
         openingHymn: Hymn? = nil,
         sacramentHymn: Hymn? = nil,
         closingHymn: Hymn? = nil
@@ -26,6 +30,8 @@ public struct Meeting: Codable, Sendable, Equatable {
         self.status = status
         self.conducting = conducting
         self.presiding = presiding
+        self.openingPrayer = openingPrayer
+        self.benediction = benediction
         self.openingHymn = openingHymn
         self.sacramentHymn = sacramentHymn
         self.closingHymn = closingHymn
@@ -34,9 +40,30 @@ public struct Meeting: Codable, Sendable, Equatable {
     public struct Assignment: Codable, Sendable, Equatable {
         public let person: Person?
         public let confirmed: Bool?
-        public init(person: Person? = nil, confirmed: Bool? = nil) {
+        /// Lifecycle string — `"planned" | "invited" | "confirmed" | "declined"`.
+        /// **iOS-side deviation from the web schema.** The web only carries
+        /// status on the post-invite `prayers/{role}` subcollection doc;
+        /// iOS additionally writes it inline so v1 doesn't need a parallel
+        /// subcollection writer + dual-source-of-truth read path. Web's
+        /// lenient Zod ignores the extra field. Stored raw to tolerate
+        /// future server-side states; UI maps via `InvitationStatus(rawString:)`.
+        public let status: String?
+        /// `wards/{wardId}/speakerInvitations/{invitationId}` doc id —
+        /// stamped after `sendSpeakerInvitation` returns successfully so
+        /// the chat sheet can fetch the invitation snapshot. Absent for
+        /// planned prayers and pre-callable rollout docs.
+        public let invitationId: String?
+
+        public init(
+            person: Person? = nil,
+            confirmed: Bool? = nil,
+            status: String? = nil,
+            invitationId: String? = nil
+        ) {
             self.person = person
             self.confirmed = confirmed
+            self.status = status
+            self.invitationId = invitationId
         }
     }
 
@@ -83,23 +110,49 @@ public extension Meeting {
         presiding?.person?.name
     }
 
-    /// Type-badge driven by the row context. Regular meetings get no badge
-    /// (the row stays visually quiet); fast / stake / general carry their
-    /// own status tone. Mirrors the web's MobileSundayBlock type tags.
-    ///
-    /// Returns `nil` when no badge should be drawn.
-    var typeBadge: (label: String, tone: StatusBadge.Tone)? {
-        switch meetingType {
-        case "fast":
-            return ("Fast & Testimony", .pending)
-        case "stake":
-            return ("Stake Conference", .destructive)
-        case "general":
-            return ("General Conference", .destructive)
-        default:
-            return nil
-        }
+    var openingPrayerName: String? {
+        openingPrayer?.person?.name
     }
+
+    var benedictionName: String? {
+        benediction?.person?.name
+    }
+
+    /// `true` when the card should render the "TESTIMONY MEETING — no
+    /// assigned speakers, member testimonies" eyebrow instead of a speaker
+    /// list. Mirrors the web's `isTestimonyMeeting(meeting)` helper.
+    var isTestimonyMeeting: Bool {
+        meetingType == "fast"
+    }
+
+    /// Label for the ⋯-menu's "plan / view" entry. Reads "Plan Sacrament
+    /// Meeting" when no doc has been written yet, "View Meeting" once one
+    /// exists. Pure helper so the menu can render the right copy
+    /// reactively as the meeting subscription resolves.
+    static func planActionLabel(meeting: Meeting?) -> String {
+        meeting == nil ? "Plan Sacrament Meeting" : "View Meeting"
+    }
+
+    /// Inferred type for a Sunday slot when no meeting doc exists yet.
+    /// First Sunday of the month → "fast", everything else → "regular".
+    /// Mirrors the web's `defaultMeetingType` (minus the
+    /// `nonMeetingSundays` override, which lives in ward settings we
+    /// don't read yet — TODO when ward settings ship). Falls back to
+    /// "regular" for unparseable IDs so the row still renders.
+    static func fallbackType(forDate isoDate: String) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let strategy = Date.ISO8601FormatStyle(timeZone: .gmt).year().month().day()
+        guard let date = try? Date(isoDate, strategy: strategy) else {
+            return "regular"
+        }
+        let comps = calendar.dateComponents([.weekday, .day], from: date)
+        if comps.weekday == 1, let day = comps.day, day <= 7 {
+            return "fast"
+        }
+        return "regular"
+    }
+
 }
 
 public enum ShortDateFormatter {
@@ -138,6 +191,22 @@ public enum ShortDateFormatter {
         var style = Date.FormatStyle()
             .month(.wide)
             .year()
+            .locale(locale)
+        style.timeZone = .gmt
+        return parsed.formatted(style)
+    }
+
+    /// Render the meeting card headline date: `"2026-05-03"` → `"May 3"`
+    /// (no weekday, mirrors the web's MobileSundayBlock card title). Falls
+    /// back to the raw string on parse failure so a row never blanks out.
+    public static func monthDay(
+        fromISO8601 raw: String,
+        locale: Locale = .current
+    ) -> String {
+        guard let parsed = parseCivilDate(raw) else { return raw }
+        var style = Date.FormatStyle()
+            .month(.abbreviated)
+            .day()
             .locale(locale)
         style.timeZone = .gmt
         return parsed.formatted(style)

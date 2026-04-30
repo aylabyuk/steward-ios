@@ -7,36 +7,100 @@ import Testing
 
 private let posix = Locale(identifier: "en_US_POSIX")
 
-@Suite("Meeting type badge — what label and tone the schedule row shows")
-struct MeetingTypeBadgeTests {
+@Suite("Meeting type fallback — what the card looks like when no doc exists")
+struct MeetingTypeFallbackTests {
 
-    @Test("Fast & Testimony Sundays render a brass-toned 'Fast & Testimony' badge")
-    func fastSunday() {
-        let meeting = Meeting(meetingType: "fast")
-        let badge = try? #require(meeting.typeBadge)
-        #expect(badge?.label == "Fast & Testimony")
-        #expect(badge?.tone == .pending) // brass slot
+    @Test("First Sunday of the month falls back to a fast Sunday")
+    func firstSundayIsFast() {
+        // 2026-05-03 was the first Sunday of May 2026.
+        #expect(Meeting.fallbackType(forDate: "2026-05-03") == "fast")
+        // 2026-04-26 was the LAST Sunday of April (day 26 > 7) — regular.
+        #expect(Meeting.fallbackType(forDate: "2026-04-26") == "regular")
     }
 
-    @Test(
-        "Stake / general conference Sundays render a bordeaux-toned badge",
-        arguments: [
-            (type: "stake",   label: "Stake Conference"),
-            (type: "general", label: "General Conference"),
-        ]
-    )
-    func stakeAndGeneral(type: String, label: String) {
-        let badge = Meeting(meetingType: type).typeBadge
-        let unwrapped = try? #require(badge)
-        #expect(unwrapped?.label == label)
-        #expect(unwrapped?.tone == .destructive) // bordeaux slot
+    @Test("Other weeks of the month fall back to regular")
+    func laterSundaysAreRegular() {
+        #expect(Meeting.fallbackType(forDate: "2026-05-10") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-17") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-24") == "regular")
+        #expect(Meeting.fallbackType(forDate: "2026-05-31") == "regular")
     }
 
-    @Test("Regular and unknown types render no badge — keeps the row visually quiet")
-    func quietRows() {
-        #expect(Meeting(meetingType: "regular").typeBadge == nil)
-        #expect(Meeting(meetingType: nil).typeBadge == nil)
-        #expect(Meeting(meetingType: "future-type").typeBadge == nil)
+    @Test("Unparseable date IDs default to regular so the row still renders")
+    func unparseable() {
+        #expect(Meeting.fallbackType(forDate: "garbage") == "regular")
+    }
+}
+
+@Suite("Meeting card body — what the user reads inside each meeting card")
+struct MeetingCardBodyTests {
+
+    @Test("Fast Sundays mark the card as a testimony meeting")
+    func fastIsTestimony() {
+        #expect(Meeting(meetingType: "fast").isTestimonyMeeting)
+        #expect(Meeting(meetingType: "regular").isTestimonyMeeting == false)
+        #expect(Meeting(meetingType: nil).isTestimonyMeeting == false)
+    }
+
+    @Test("Opening + closing prayer assignees surface from the meeting doc")
+    func prayerAssignees() throws {
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": { "person": { "name": "Sister Davis" } },
+            "benediction":   { "person": { "name": "Brother Cole" } }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayerName == "Sister Davis")
+        #expect(meeting.benedictionName == "Brother Cole")
+    }
+
+    @Test("Missing prayer assignments surface as nil so the UI can render 'Not assigned'")
+    func unassignedPrayers() {
+        let meeting = Meeting(meetingType: "regular")
+        #expect(meeting.openingPrayerName == nil)
+        #expect(meeting.benedictionName == nil)
+    }
+
+    @Test("An invited prayer's status round-trips off the inline Assignment so the row shows a brass dot")
+    func prayerStatusRoundTrip() throws {
+        // iOS deviation from the web: the inline Assignment now carries
+        // a `status` field too (web stores prayer status only in the
+        // post-invite `prayers/{role}` subcollection). See
+        // docs/web-deviations.md for the rationale.
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": {
+                "person": { "name": "Sister Davis", "email": "sd@example.com" },
+                "confirmed": false,
+                "status": "invited"
+            },
+            "benediction": {
+                "person": { "name": "Brother Cole" },
+                "confirmed": false,
+                "status": "planned"
+            }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayer?.status == "invited")
+        #expect(meeting.benediction?.status == "planned")
+        #expect(InvitationStatus(rawString: meeting.openingPrayer?.status)?.tone == .pending)
+        #expect(InvitationStatus(rawString: meeting.benediction?.status)?.tone == .neutral)
+    }
+
+    @Test("A meeting decoded without a prayer status leaves the field nil so the legacy doc shape still loads")
+    func prayerStatusBackcompat() throws {
+        let json = """
+        {
+            "meetingType": "regular",
+            "openingPrayer": { "person": { "name": "Sister Davis" } }
+        }
+        """.data(using: .utf8)!
+        let meeting = try JSONDecoder().decode(Meeting.self, from: json)
+        #expect(meeting.openingPrayer?.status == nil)
     }
 }
 
